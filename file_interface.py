@@ -4,7 +4,7 @@ class File():
 	def __init__(self, fname, encoded=True):
 		self.file = {}
 		count_empty_docs = 0
-		with open(fname, 'r') as f:
+		with open(fname, 'r', encoding='utf-8') as f:
 			for line in f:
 				delim_pos = line.find('\t')
 				id_ = line[:delim_pos]
