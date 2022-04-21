@@ -40,7 +40,7 @@ class TrecEval(object):
 		output_all_topics = subprocess.check_output(f"./{self.path} {add_params} -q -m all_trec {qrel_path} {ranking_path} -M {max_rank}", shell=True).decode(sys.stdout.encoding)
 		self.ranking_path = ranking_path
 		all_topics_path = self.ranking_path + '.scores_all_topics.trec'
-		print(all_topics_path)
+		#print(all_topics_path)
 		with open(all_topics_path, 'w') as f:
 			f.write(output_all_topics)
 
