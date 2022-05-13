@@ -5,6 +5,8 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification, Auto
 from fairseq.models.roberta import RobertaModel
 import torch.nn as nn
 import torch
+from bert_tf import BERT_TF, BERT_TF_Config
+import time 
 
 class MarginMSELoss(nn.Module):
     def __init__(self):
@@ -30,17 +32,69 @@ def get_model(model_name, checkpoint=None):
     prepend_type = False
     # instanitae model
 
-    if 'crossencoder' == model_name:
+    if 'no_pos' == model_name:
+
+        tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+        model = AutoModelForSequenceClassification.from_pretrained('/project/draugpu/experiments_cikm/bert/bz_128_lr_3e-06_no_pos_emb/model_20/')
+        encoding = 'cross'
+       
+        def get_scores(model, features, index, save_hidden_states=False):
+            encoded_input = features['encoded_input'][index]
+            out_raw = model(**encoded_input.to('cuda'), output_hidden_states=save_hidden_states)
+            scores = out_raw.logits[:, 1]
+            return_dict = {}
+            return_dict['scores'] = scores
+            if save_hidden_states:
+                return_dict['last_hidden'] = out_raw['hidden_states'][-1][:,0,:]
+            return return_dict
+
+    if 'shuffle' == model_name:
+        tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+        model = AutoModelForSequenceClassification.from_pretrained('/project/draugpu/experiments_cikm/bert/bz_128_lr_3e-06shuffle/model_30/')
+        encoding = 'cross' 
+        def get_scores(model, features, index, save_hidden_states=False):
+            encoded_input = features['encoded_input'][index]
+            out_raw = model(**encoded_input.to('cuda'), output_hidden_states=save_hidden_states)
+            scores = out_raw.logits[:, 1]
+            return_dict = {}
+            return_dict['scores'] = scores
+            if save_hidden_states:
+                return_dict['last_hidden'] = out_raw['hidden_states'][-1][:,0,:]
+            return return_dict
+
+    if 'sort' == model_name:
+        tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+        model = torch.load('/project/draugpu/experiments_bert_model/experiments_msmarco/model_bz_64_lr_3e-06_do_0.2_sr__cls_1000fine_tune_shuffle/model.epfinal.pth')
+        model = model.module
+        model.to('cpu')
+        encoding = 'cross' 
+        def get_scores(model, features, index, save_hidden_states=False):
+            encoded_input = features['encoded_input'][index]
+            out_raw = model(**encoded_input.to('cuda'))
+            scores = out_raw
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
+
+    elif 'crossencoder' == model_name:
         model_name = "nboost/pt-bert-base-uncased-msmarco"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = AutoModelForSequenceClassification.from_pretrained(model_name)
         encoding = 'cross'
 
-        def get_scores(model, features, index ):
+        def get_scores(model, features, index, save_hidden_states=False):
             encoded_input = features['encoded_input'][index]
-            out_raw = model(**encoded_input.to('cuda'))
+
+            start = time.time()
+            out_raw = model(**encoded_input.to('cuda'), output_hidden_states=save_hidden_states)
+            finish = (time.time() - start)
             scores = out_raw.logits[:, 1]
-            return scores
+            return_dict = {}
+            return_dict['scores'] = scores
+            return_dict['time'] = finish - start
+            if save_hidden_states:
+                return_dict['last_hidden'] = out_raw['hidden_states'][-1][:,0,:]
+            return return_dict
 
     elif 'crossencoder_2' == model_name:
         tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
@@ -55,7 +109,9 @@ def get_model(model_name, checkpoint=None):
             encoded_input = features['encoded_input'][index]
             out_raw = model(**encoded_input.to('cuda'))
             scores = out_raw.logits[:, 1]
-            return scores  
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
 
     elif 'electra' == model_name:
         model_name = 'google/electra-small-discriminator'
@@ -67,6 +123,9 @@ def get_model(model_name, checkpoint=None):
             encoded_input = features['encoded_input'][index]
             out_raw = model(**encoded_input.to('cuda'))
             scores = out_raw.logits[:, 1]
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
             return scores
 
     elif 'roberta.shuffle' in model_name or 'roberta.base.orig' == model_name:
@@ -79,7 +138,9 @@ def get_model(model_name, checkpoint=None):
             encoded_input = features['encoded_input'][index]
             out_raw = model(**encoded_input.to('cuda'))
             scores = out_raw.logits[:, 1]
-            return scores
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
     elif 'roberta.base.nopos' in model_name :
         tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
         model = AutoModelForSequenceClassification.from_pretrained(f'models/{model_name}')
@@ -89,7 +150,9 @@ def get_model(model_name, checkpoint=None):
             encoded_input = features['encoded_input'][index]
             out_raw = model(**encoded_input.to('cuda'))
             scores = out_raw.logits[:, 1]
-            return scores
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
         
 
     elif 'bert' == model_name:
@@ -98,11 +161,32 @@ def get_model(model_name, checkpoint=None):
         model = AutoModelForSequenceClassification.from_pretrained(model_name)
         encoding = 'cross'
 
+        def get_scores(model, features, index, save_hidden_states=False ):
+            return_dict = {}
+            encoded_input = features['encoded_input'][index]
+            out_raw = model(**encoded_input.to('cuda'), output_hidden_states=save_hidden_states)
+            return_dict['scores'] = out_raw.logits[:, 1]
+            if save_hidden_states:
+                return_dict['last_hidden'] = out_raw['hidden_states'][-1][:,0,:]
+            return return_dict
+
+
+    elif 'bert_tf' == model_name:
+        model_name = "bert-base-uncased"
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        #model = BERT_TF(BERT_TF_Config())
+        #model = BERT_TF()
+        encoding = 'cross'
+
         def get_scores(model, features, index):
             encoded_input = features['encoded_input'][index]
-            out_raw = model(**encoded_input.to('cuda'))
+            out_raw = model(**encoded_input.to('cuda'), position_embeds=features['tf_embeds'][index].to('cuda'))
             scores = out_raw.logits[:, 1]
-            return scores
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
+
 
     elif 'minilm12' == model_name:
         model_name = 'cross-encoder/ms-marco-MiniLM-L-12-v2'
@@ -114,7 +198,9 @@ def get_model(model_name, checkpoint=None):
             encoded_input = features['encoded_input'][index]
             out_raw = model(**encoded_input.to('cuda'))
             scores = out_raw.logits[:, 0]
-            return scores
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
     elif 'tinybert' == model_name:
         model_name = 'cross-encoder/ms-marco-TinyBERT-L-2-v2'
         tokenizer = AutoTokenizer.from_pretrained(model_name)
@@ -126,7 +212,9 @@ def get_model(model_name, checkpoint=None):
             encoded_input = features['encoded_input'][index]
             out_raw = model(**encoded_input.to('cuda'))
             scores = out_raw.logits[:, 0]
-            return scores
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
 
     elif 'duobert' == model_name:
         model_name = 'bert-base-uncased'
@@ -141,7 +229,9 @@ def get_model(model_name, checkpoint=None):
             emb_queries = model(**encoded_queries.to('cuda'))[0][:,0,:].squeeze(0)
             emb_docs = model(**encoded_docs.to('cuda'))[0][:,0,:].squeeze(0)
             scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
-            return scores
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
 
     elif 'contriever' == model_name:
         model_name = 'facebook/contriever-msmarco'
@@ -157,8 +247,10 @@ def get_model(model_name, checkpoint=None):
             emb_queries_av = mean_pooling(emb_queries[0], encoded_queries['attention_mask'])
             emb_docs_av = mean_pooling(emb_docs[0], encoded_docs['attention_mask'])
             scores = torch.bmm(emb_queries_av.unsqueeze(1), emb_docs_av.unsqueeze(-1)).squeeze()
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
 
-            return scores 
 
     elif 'tctcolbert' == model_name:
         model_name = "castorini/tct_colbert-msmarco"
@@ -175,7 +267,9 @@ def get_model(model_name, checkpoint=None):
             emb_queries_mean = mean_pooling(emb_queries["last_hidden_state"], encoded_queries['attention_mask'])
             emb_docs_mean = mean_pooling(emb_docs["last_hidden_state"][:, 4:, :], encoded_docs['attention_mask'][:, 4:])
             scores = torch.bmm(emb_queries_mean.unsqueeze(1), emb_docs_mean.unsqueeze(-1)).squeeze()
-            return scores 
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
 
         encoding = 'bi'
 
@@ -192,7 +286,9 @@ def get_model(model_name, checkpoint=None):
             emb_queries = model(**encoded_queries.to('cuda'))
             emb_docs = model(**encoded_docs.to('cuda'))
             scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
-            return scores
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
 
     elif 'monolarge' == model_name:
         model_name = 'castorini/monobert-large-msmarco-finetune-only' 
@@ -209,7 +305,9 @@ def get_model(model_name, checkpoint=None):
             #emb_docs_av = mean_pooling(emb_docs, encoded_docs['attention_mask'])
             #scores = torch.bmm(emb_queries_av.unsqueeze(1), emb_docs_av.unsqueeze(-1)).squeeze()
             scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
-            return scores 
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
 
 
     elif 'cocondenser' == model_name:
@@ -228,6 +326,9 @@ def get_model(model_name, checkpoint=None):
             #emb_docs_av = mean_pooling(emb_docs, encoded_docs['attention_mask'])
             #scores = torch.bmm(emb_queries_av.unsqueeze(1), emb_docs_av.unsqueeze(-1)).squeeze()
             scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
 
             return scores
 
@@ -243,7 +344,9 @@ def get_model(model_name, checkpoint=None):
             emb_queries = model(**encoded_queries.to('cuda'))[0][:,0,:].squeeze(0)
             emb_docs = model(**encoded_docs.to('cuda'))[0][:,0,:].squeeze(0)
             scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
-            return scores 
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
 
     elif 'distilldot' == model_name:
         model_name = 'sebastian-hofstaetter/distilbert-dot-margin_mse-T2-msmarco'
@@ -260,7 +363,9 @@ def get_model(model_name, checkpoint=None):
             emb_queries = model(**encoded_queries.to('cuda'))[0][:,0,:].squeeze(0)
             emb_docs = model(**encoded_docs.to('cuda'))[0][:,0,:].squeeze(0)
             scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
-            return scores 
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
 
 
     elif 'sentencebert' == model_name:
@@ -283,9 +388,10 @@ def get_model(model_name, checkpoint=None):
             emb_queries_av = mean_pooling(emb_queries, encoded_queries['attention_mask'])
             emb_docs_av = mean_pooling(emb_docs, encoded_docs['attention_mask'])
             scores = torch.bmm(emb_queries_av.unsqueeze(1), emb_docs_av.unsqueeze(-1)).squeeze()
-            return scores
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
 
     if checkpoint != None:
         model = AutoModelForSequenceClassification.from_pretrained(checkpoint)
-
     return model, tokenizer, get_scores, encoding, prepend_type
