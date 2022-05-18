@@ -48,7 +48,6 @@ parser.add_argument("--no_pos_emb", action='store_true')
 parser.add_argument("--shuffle", action='store_true')
 parser.add_argument("--sort", action='store_true')
 parser.add_argument("--eval_strategy", default='first_p', type=str)
-
 parser.add_argument("--keep_q", action='store_true')
 parser.add_argument("--drop_q", action='store_true')
 parser.add_argument("--mse_loss", action='store_true')
@@ -58,6 +57,10 @@ args = parser.parse_args()
 print(args)
 
 
+if args.eval_strategy == 'last_p':
+    truncation_side = 'left'
+else:
+    truncation_side = 'right'
 
 
 #experiments_path = 'project/draugpu/experiments_rank_model/'
@@ -112,7 +115,7 @@ if args.collection != None:
     ID2DOC = args.collection
 
 # instanitae model
-model, tokenizer, get_scores, encoding, prepend_type = get_model(args.model, args.checkpoint)
+model, tokenizer, get_scores, encoding, prepend_type = get_model(args.model, args.checkpoint, truncation_side=truncation_side)
 
 # load data
 id2q_test = File(ID2Q_TEST, encoded=False)
@@ -124,7 +127,7 @@ if args.train:
     dataset_train = DataReader(tokenizer, DATA_FILE_TRAIN, 2, True, id2q_train, id2d, args.mb_size_train, encoding=encoding, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, shuffle=args.shuffle, sort=args.sort, has_label_scores=args.mse_loss, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds)
     dataloader_train = DataLoader(dataset_train, batch_size=None, num_workers=1, pin_memory=False, collate_fn=dataset_train.collate_fn)
 
-dataset_test = DataReader(tokenizer, DATA_FILE_TEST, 1, False, id2q_test, id2d, args.mb_size_test, encoding=encoding, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, shuffle=args.shuffle, sort=args.sort, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, sliding_window=args.eval_strategy!='first_p')
+dataset_test = DataReader(tokenizer, DATA_FILE_TEST, 1, False, id2q_test, id2d, args.mb_size_test, encoding=encoding, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, shuffle=args.shuffle, sort=args.sort, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, sliding_window=args.eval_strategy!='first_p' and args.eval_strategy != 'last_p')
 dataloader_test = DataLoader(dataset_test, batch_size=None, num_workers=0, pin_memory=False, collate_fn=dataset_test.collate_fn)
 
 model = model.to('cuda')
@@ -206,7 +209,7 @@ def eval_model(model, get_scores, dataloader_test, model_dir,  max_rank='1000', 
                 res_test[q] = {}
             if d not in res_test[q]:
                 res_test[q][d] = 0
-            if eval_strategy == 'first_p':
+            if eval_strategy == 'first_p' or eval_strategy == 'last_p':
                 res_test[q][d] = scores[i].item()
             elif eval_strategy == 'max_p':
                 if res_test[q][d] <= scores[i].item():
@@ -239,7 +242,7 @@ def train_model(model, dataloader_train, dataloader_test, get_scores, criterion,
     batch_iterator = iter(dataloader_train)
     total_examples_seen = 0
     model.train()
-    for ep_idx in range(continue_epoch, num_epochs+continue_epoch+1):
+    for ep_idx in range(continue_epoch, num_epochs+continue_epoch):
         print('epoch', ep_idx)
         # TRAINING
         epoch_loss = 0.0
@@ -282,7 +285,7 @@ def train_model(model, dataloader_train, dataloader_test, get_scores, criterion,
         print('saving_model')
 
         if ep_idx % save_every == 0:
-            model.module.save_pretrained(f'{model_dir}/model_{ep_idx}')
+            model.module.save_pretrained(f'{model_dir}/model_{ep_idx+1}')
 
 
 if args.train:

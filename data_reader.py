@@ -46,6 +46,7 @@ class DataReader(torch.utils.data.IterableDataset):
     def __iter__(self):
             self.ignored_docs = 0
             self.done = False
+            first_batch = False
             while True:
                     features = {}
                     if not self.has_label_scores:
@@ -101,8 +102,8 @@ class DataReader(torch.utils.data.IterableDataset):
                         
                         if self.sliding_window:  
                                 d_tokenized = self.basic_tokenizer.tokenize(ds[-1])
-                                len_chunk = 200
-                                stride = 15
+                                len_chunk = 512
+                                stride = 256
                                 chunks = [d_tokenized[i:i+len_chunk] for i in range(0, len(d_tokenized), len_chunk-stride)]
                                 print(len(d_tokenized), len(chunks))
                                 for chunk in chunks:
@@ -136,6 +137,12 @@ class DataReader(torch.utils.data.IterableDataset):
                       #  features['encoded_input'] = batch
                     if self.tf_embeds:
                         features['tf_embeds'] = [self.get_tf_embeds(inp['input_ids']) for inp in features['encoded_input']]
+                    if not first_batch:
+                        dids = [ el[1] for el in features['meta']]
+                        idxs = random.sample(range(len(dids)), 2)
+                        for idx in idxs:
+                            print(dids[idx], self.tokenizer.decode(features['encoded_input'][-1]['input_ids'][idx]))
+                        first_batch=True
                     yield features
 
                     if self.done:

@@ -28,13 +28,13 @@ def mean_pooling(token_embeddings, mask):
     return sentence_embeddings
 
 
-def get_model(model_name, checkpoint=None):
+def get_model(model_name, checkpoint=None, **kwargs):
     prepend_type = False
     # instanitae model
 
     if 'no_pos' == model_name:
 
-        tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+        tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased', truncation_side=kwargs['truncation_side'])
         model = AutoModelForSequenceClassification.from_pretrained('/project/draugpu/experiments_cikm/bert/bz_128_lr_3e-06_no_pos_emb/model_20/')
         encoding = 'cross'
        
@@ -48,8 +48,8 @@ def get_model(model_name, checkpoint=None):
                 return_dict['last_hidden'] = out_raw['hidden_states'][-1][:,0,:]
             return return_dict
 
-    if 'shuffle' == model_name:
-        tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+    elif 'shuffle' == model_name:
+        tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased', truncation_side=kwargs['truncation_side'])
         model = AutoModelForSequenceClassification.from_pretrained('/project/draugpu/experiments_cikm/bert/bz_128_lr_3e-06shuffle/model_30/')
         encoding = 'cross' 
         def get_scores(model, features, index, save_hidden_states=False):
@@ -62,8 +62,8 @@ def get_model(model_name, checkpoint=None):
                 return_dict['last_hidden'] = out_raw['hidden_states'][-1][:,0,:]
             return return_dict
 
-    if 'sort' == model_name:
-        tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+    elif 'sort' == model_name:
+        tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased', truncation_side=kwargs['truncation_side'])
         model = torch.load('/project/draugpu/experiments_bert_model/experiments_msmarco/model_bz_64_lr_3e-06_do_0.2_sr__cls_1000fine_tune_shuffle/model.epfinal.pth')
         model = model.module
         model.to('cpu')
@@ -78,7 +78,7 @@ def get_model(model_name, checkpoint=None):
 
     elif 'crossencoder' == model_name:
         model_name = "nboost/pt-bert-base-uncased-msmarco"
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(model_name,truncation_side=kwargs['truncation_side'] )
         model = AutoModelForSequenceClassification.from_pretrained(model_name)
         encoding = 'cross'
 
@@ -97,7 +97,7 @@ def get_model(model_name, checkpoint=None):
             return return_dict
 
     elif 'crossencoder_2' == model_name:
-        tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+        tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased', truncation_side=kwargs['truncation_side'])
         model = AutoModelForSequenceClassification.from_config(BertConfig(num_hidden_layers=2))
         model_pre = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased')
         model.bert.embeddings = model_pre.bert.embeddings
@@ -157,7 +157,7 @@ def get_model(model_name, checkpoint=None):
 
     elif 'bert' == model_name:
         model_name = "bert-base-uncased"
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(model_name, truncation_side=kwargs['truncation_side'])
         model = AutoModelForSequenceClassification.from_pretrained(model_name)
         encoding = 'cross'
 
@@ -203,7 +203,7 @@ def get_model(model_name, checkpoint=None):
             return return_dict
     elif 'tinybert' == model_name:
         model_name = 'cross-encoder/ms-marco-TinyBERT-L-2-v2'
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(model_name, truncation_side=kwargs['truncation_side'])
         model = AutoModelForSequenceClassification.from_pretrained(model_name)
         encoding = 'cross'
 
@@ -218,11 +218,11 @@ def get_model(model_name, checkpoint=None):
 
     elif 'duobert' == model_name:
         model_name = 'bert-base-uncased'
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(model_name, truncation_side=kwargs['truncation_side'])
         model = AutoModel.from_pretrained(model_name)
         encoding = 'bi'
 
-        def get_scores(model, features, index):
+        def get_scores(model, features, index, save_hidden_states=False):
             encoded_queries = features['encoded_queries']
             encoded_docs = features['encoded_docs'][index]
 
