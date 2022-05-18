@@ -91,7 +91,7 @@ def get_model(model_name, checkpoint=None, **kwargs):
             scores = out_raw.logits[:, 1]
             return_dict = {}
             return_dict['scores'] = scores
-            return_dict['time'] = finish - start
+            return_dict['time'] = finish
             if save_hidden_states:
                 return_dict['last_hidden'] = out_raw['hidden_states'][-1][:,0,:]
             return return_dict

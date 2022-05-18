@@ -189,8 +189,8 @@ def eval_model(model, get_scores, dataloader_test, model_dir,  max_rank='1000', 
         with torch.no_grad():
             start_time = time.time()
             out = get_scores(model, features, index=0, save_hidden_states=save_hidden_states)
-            scores = out['scores']
             timer = time.time()-start_time
+            scores = out['scores']
             if 'time' in out: 
                 timer = out['time']
             timer = (timer*1000)/scores.shape[0]
@@ -227,7 +227,7 @@ def eval_model(model, get_scores, dataloader_test, model_dir,  max_rank='1000', 
     perf_monitor.log_unique_value("encoding_gpu_mem_max",str(torch.cuda.max_memory_allocated()/float(1e9)) + " GB")
 
 
-    perf_monitor.log_unique_value("eval_median_batch_pair_latency_ms", np.median(batch_latency)*1000)
+    perf_monitor.log_unique_value("eval_median_batch_pair_latency_ms", np.median(batch_latency))
     perf_monitor.print_summary()
     # RUN TREC_EVAL
     test = Trec(args.eval_metric, 'trec_eval', QRELS_TEST, max_rank, ranking_file_path=f'{model_dir}/model_eval_ranking{suffix}')
