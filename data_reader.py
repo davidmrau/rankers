@@ -102,9 +102,13 @@ class DataReader(torch.utils.data.IterableDataset):
                         
                         if self.sliding_window:  
                                 d_tokenized = self.basic_tokenizer.tokenize(ds[-1])
-                                len_chunk = 512
-                                stride = 256
+                                d_tokenized = d_tokenized
+                                len_chunk = 150
+                                stride = 75
+
                                 chunks = [d_tokenized[i:i+len_chunk] for i in range(0, len(d_tokenized), len_chunk-stride)]
+                                if len(chunks) > 30:
+                                    chunks = [chunks[0]] + [chunks[i] for i in random.sample(range(1, len(chunks)-1), 28)] + [chunks[-1]]
                                 print(len(d_tokenized), len(chunks))
                                 for chunk in chunks:
                                     batch_docs.append([' '.join(chunk)])
