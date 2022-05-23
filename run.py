@@ -83,7 +83,7 @@ if args.dataset == '2020':
 
 if args.dataset == '2020_docs':
     QRELS_TEST = "data/msmarco_docs/2020qrels-docs.txt"
-    DATA_FILE_TEST = "data/msmarco_docs/msmarco-doctest2020-top100" 
+    DATA_FILE_TEST = "data/msmarco_docs/msmarco-doctest2020-top100_judged" 
     ID2Q_TEST = "data/msmarco_docs/msmarco-test2020-queries.tsv"
     ID2DOC = 'data/msmarco_docs/msmarco-docs.tsv_test_2020.tsv'
 
@@ -100,9 +100,9 @@ elif args.dataset == '2019':
     ID2DOC = 'data/msmarco/collection.tsv'
 
 elif args.dataset == 'robust':
-    QRELS_TEST = "data/robust_test/qrels.robust2004.txt"
-    DATA_FILE_TEST = "data/robust_test/run.robust04.bm25.no_stem.trec"
-    ID2Q_TEST = 'data/robust_test/04.testset_num_query_lower'
+    QRELS_TEST = "data/robust/qrels.robust2004.txt"
+    DATA_FILE_TEST = "data/robust/run.robust04.bm25.no_stem.trec"
+    ID2Q_TEST = 'data/robust/04.testset_num_query_lower'
     ID2DOC = 'data/robust/robust04_raw_docs.num_query'
 
 
@@ -132,7 +132,7 @@ dataloader_test = DataLoader(dataset_test, batch_size=None, num_workers=0, pin_m
 
 model = model.to('cuda')
 
-model_dir = f'/project/draugpu/{args.experiment_folder}/{args.model}/'
+model_dir = f'project/{args.dataset}/{args.experiment_folder}/{args.model}/'
 
 if not args.train:
     model_dir += args.add_to_dir
@@ -208,7 +208,7 @@ def eval_model(model, get_scores, dataloader_test, model_dir,  max_rank='1000', 
             if q not in res_test:
                 res_test[q] = {}
             if d not in res_test[q]:
-                res_test[q][d] = 0
+                res_test[q][d] = -10000
             if eval_strategy == 'first_p' or eval_strategy == 'last_p':
                 res_test[q][d] = scores[i].item()
             elif eval_strategy == 'max_p':
