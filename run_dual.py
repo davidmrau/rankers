@@ -16,9 +16,8 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from file_interface import File
 from metrics import Trec
-from data_reader import DataReader, MSMARCO
+from data_reader import DataReader
 import argparse
-import gzip
 import torch.optim as optim
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
@@ -31,7 +30,7 @@ parser.add_argument("--model", type=str, required=True )
 parser.add_argument("--experiment_folder", type=str, required=True )
 parser.add_argument("--dataset", type=str, required=True )
 parser.add_argument("--mb_size_test", type=int, default=128)
-parser.add_argument("--num_epochs", type=int, default=10)
+parser.add_argument("--num_epochs", type=int, default=20)
 parser.add_argument("--max_inp_len", type=int, default=512)
 parser.add_argument("--max_q_len", type=int, default=None)
 parser.add_argument("--collection", type=str, default=None)
@@ -44,8 +43,6 @@ parser.add_argument("--checkpoint", type=str, default=None)
 parser.add_argument("--truncation_side", type=str, default='right')
 parser.add_argument("--continue_epoch", type=int, default=0)
 parser.add_argument("--train", action='store_true')
-parser.add_argument("--encode", action='store_true')
-parser.add_argument("--encode_query", action='store_true')
 parser.add_argument("--save_last_hidden", action='store_true')
 
 parser.add_argument("--tf_embeds", action='store_true')
@@ -60,14 +57,17 @@ parser.add_argument("--preserve_q", action='store_true')
 parser.add_argument("--mse_loss", action='store_true')
 
 
+parser.add_argument("--rand_length", action='store_true')
+
+
 args = parser.parse_args()
 print(args)
-print(args.eval_strategy == 'last_p')
+
 if args.eval_strategy == 'last_p':
     truncation_side = 'left'
 else:
     truncation_side = 'right'
-args.truncation_side = truncation_side
+truncation_side = args.truncation_side
 print(truncation_side)
 #experiments_path = 'project/draugpu/experiments_rank_model/'
 model_dir = "/".join(args.model.split('/')[:-1])
@@ -117,17 +117,11 @@ elif args.dataset == '2021':
     ID2Q_TEST = "data/msmarco_2/2021_queries.tsv"
     ID2DOC_train = 'data/msmarco_2/passages_provided_top_100.tsv'
 
-elif args.dataset == '2022_docs_plm':
+elif args.dataset == '2022_plm':
     QRELS_TEST = ""
     ID2Q_TEST = "data/msmarco_2/2022_queries.tsv"
     DATA_FILE_TEST = "data/msmarco_2/2022_document_top100.txt"
     ID2DOC_train = 'data/msmarco_2/all_docs_2022_plm.tsv'
-
-elif args.dataset == '2021_docs_plm':
-    QRELS_TEST = "data/msmarco_docs/2021.qrels.docs.final.txt"
-    ID2Q_TEST = "data/msmarco_docs/2021_queries.tsv"
-    DATA_FILE_TEST = "data/msmarco_docs/2021_document_top100_judged.txt"
-    ID2DOC_test = 'data/msmarco_docs/2021_msmarco_v2_judged.tsv_plm_512'
 
 elif args.dataset == '2019':
     QRELS_TEST = "data/msmarco/2019qrels-pass.txt"
@@ -159,33 +153,34 @@ if args.collection != None:
 if args.run != None:
     DATA_FILE_TEST = args.run
 # instanitae model
-model, tokenizer, model_eval_fn, encoding, prepend_type = get_model(args.model, args.checkpoint, truncation_side=args.truncation_side, encoding=args.encode)
+model, tokenizer, get_scores, encoding, prepend_type = get_model(args.model, args.checkpoint, truncation_side=truncation_side)
 
+# load data
+id2q_test = File(ID2Q_TEST, encoded=False)
+id2d_train = File(ID2DOC_train, encoded=False)
 
+if ID2DOC_test == None:
+    id2d_test = id2d_train
+else:
+    id2d_test = File(ID2DOC_test, encoded=False)
 
-    
 # instantiate Data Reader
 if args.train:
-    id2d_train = File(ID2DOC_train, encoded=False)
     id2q_train = File(ID2Q_TRAIN, encoded=False)
-    dataset_train = DataReader(tokenizer, DATA_FILE_TRAIN, 2, True, id2q_train, id2d_train, args.mb_size_train, encoding=encoding, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, has_label_scores=args.mse_loss, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds)
+    dataset_train = DataReader(tokenizer, DATA_FILE_TRAIN, 2, True, id2q_train, id2d_train, args.mb_size_train, encoding=encoding, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, has_label_scores=args.mse_loss, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, rand_length=args.rand_length)
     dataloader_train = DataLoader(dataset_train, batch_size=None, num_workers=1, pin_memory=False, collate_fn=dataset_train.collate_fn)
+   
 
-if args.encode:
-    dataset = MSMARCO(args.collection, tokenizer, max_len=args.max_inp_len)
-    dataloader_encode = DataLoader(dataset, batch_size=args.mb_size_test, num_workers=1, collate_fn=dataset.collate_fn)
-else:
-    if ID2DOC_test == None:
-        id2d_test = id2d_train
-    else:
-        id2d_test = File(ID2DOC_test, encoded=False)
+    DATA_FILE_TRAIN_2 = "data/msmarco/qidpidtriples.train.full.tsv"
+    ID2DOC_train_2 = 'data/msmarco/collection.tsv'
+    ID2Q_TRAIN_2 = "data/msmarco/queries.train.tsv" 
+    id2d_train_2 = File(ID2DOC_train_2, encoded=False)
+    id2q_train_2 = File(ID2Q_TRAIN_2, encoded=False)
+    dataset_train_2 = DataReader(tokenizer, DATA_FILE_TRAIN_2, 2, True, id2q_train_2, id2d_train_2, args.mb_size_train, encoding=encoding, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, has_label_scores=args.mse_loss, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds)
+    dataloader_train_2 = DataLoader(dataset_train_2, batch_size=None, num_workers=1, pin_memory=False, collate_fn=dataset_train.collate_fn)
 
-    # load data
-    id2q_test = File(ID2Q_TEST, encoded=False)
-
-
-    dataset_test = DataReader(tokenizer, DATA_FILE_TEST, 1, False, id2q_test, id2d_test, args.mb_size_test, encoding=encoding, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, sliding_window=args.eval_strategy!='first_p' and args.eval_strategy != 'last_p')
-    dataloader_test = DataLoader(dataset_test, batch_size=None, num_workers=0, pin_memory=False, collate_fn=dataset_test.collate_fn)
+dataset_test = DataReader(tokenizer, DATA_FILE_TEST, 1, False, id2q_test, id2d_test, args.mb_size_test, encoding=encoding, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, sliding_window=args.eval_strategy!='first_p' and args.eval_strategy != 'last_p')
+dataloader_test = DataLoader(dataset_test, batch_size=None, num_workers=0, pin_memory=False, collate_fn=dataset_test.collate_fn)
 
 model = model.to('cuda')
 
@@ -237,43 +232,7 @@ elif encoding == 'bi':
 if args.mse_loss:
     criterion = MarginMSELoss()
 
-
-def encode(model, tokenizer, collection, model_eval_fn, dataloader, model_dir, eval_strategy='first_p', encode_query=False):
-
-
-    model.eval()
-    batch_latency = []
-    perf_monitor = PerformanceMonitor.get()
-    type_ = '_query_encoded' if encode_query else '_docs_encoded'
-    out_fname = f'/project/draugpu/encode/{args.collection.split("/")[-1]}{type_}.txt.gz'
-    weight_range = 5
-    quant_range = 256
-    with gzip.open(out_fname, 'wt', encoding='utf-8') as f:
-        for num_i, features in tqdm(enumerate(dataloader)):
-            with torch.no_grad():
-                ids, latent_terms = model_eval_fn(model, features, index=0)
-
-                # decode and print random sample
-                if num_i == 0:
-                    idxs = random.sample(range(len(ids)), 1)
-                    for idx in idxs:
-                        print(ids[idx], tokenizer.decode(features[1]['input_ids'][idx]))
-
-                for id_, latent_term in zip(ids, latent_terms):
-                    if encode_query:
-                        pseudo_str = []
-                        for tok, weight in latent_term.items():
-                            weight_quanted = int(np.round(weight/weight_range*quant_range))
-                            pseudo_str += [tok] * weight_quanted
-                        latent_term = " ".join(pseudo_str)
-                        f.write(f"{id_}\t{latent_term}\n")
-                    else:
-                        f.write( json.dumps({"id": id_, "vector": latent_term }) + '\n')
-
-
-
-
-def eval_model(model, model_eval_fn, dataloader_test, model_dir,  max_rank='1000', eval_metric='ndcg_cut_10', suffix='', save_hidden_states=False, eval_strategy='first_p'):
+def eval_model(model, get_scores, dataloader_test, model_dir,  max_rank='1000', eval_metric='ndcg_cut_10', suffix='', save_hidden_states=False, eval_strategy='first_p'):
     model.eval()
     res_test = {}
     batch_latency = []
@@ -282,13 +241,13 @@ def eval_model(model, model_eval_fn, dataloader_test, model_dir,  max_rank='1000
     for num_i, features in tqdm(enumerate(dataloader_test)):
         with torch.no_grad():
             start_time = time.time()
-            out = model_eval_fn(model, features, index=0, save_hidden_states=save_hidden_states)
+            out = get_scores(model, features, index=0, save_hidden_states=save_hidden_states)
             timer = time.time()-start_time
             scores = out['scores']
-
             if 'time' in out: 
                 timer = out['time']
             timer = (timer*1000)/scores.shape[0]
+
             batch_latency.append(timer)
             if save_hidden_states:
                 hidden = out['last_hidden'].detach().cpu().numpy()
@@ -332,8 +291,9 @@ def eval_model(model, model_eval_fn, dataloader_test, model_dir,  max_rank='1000
     return eval_val
 
 
-def train_model(model, dataloader_train, dataloader_test, model_eval_fn, criterion, optimizer,  model_dir, encoding='cross', num_epochs=40, epoch_size=1000, log_every=10, save_every=1, continue_epoch=0):
+def train_model(model, dataloader_train, dataloader_train_2, dataloader_test, get_scores, criterion, optimizer,  model_dir, encoding='cross', num_epochs=40, epoch_size=1000, log_every=10, save_every=1, continue_epoch=0):
     batch_iterator = iter(dataloader_train)
+    batch_iterator_2 = iter(dataloader_train_2)
     total_examples_seen = 0
     model.train()
     for ep_idx in range(continue_epoch, num_epochs+continue_epoch):
@@ -343,12 +303,20 @@ def train_model(model, dataloader_train, dataloader_test, model_eval_fn, criteri
         mb_idx = 0
         while mb_idx  <   epoch_size:
             # get train data
-            try:
-                features = next(batch_iterator)
-            except StopIteration:
-                batch_iterator = iter(dataloader_train)
-                continue
-            scores_doc_1, scores_doc_2 = model_eval_fn(model, features, index=0)['scores'], model_eval_fn(model, features, index=1)['scores']
+            if random.random() > .5:
+                try:
+                    features = next(batch_iterator)
+                except StopIteration:
+                    batch_iterator = iter(dataloader_train)
+                    continue
+            else:
+                try:
+                    features = next(batch_iterator_2)
+                except StopIteration:
+                    batch_iterator_2 = iter(dataloader_train_2)
+                    continue
+
+            scores_doc_1, scores_doc_2 = get_scores(model, features, index=0)['scores'], get_scores(model, features, index=1)['scores']
 
             optimizer.zero_grad()
 
@@ -374,7 +342,7 @@ def train_model(model, dataloader_train, dataloader_test, model_eval_fn, criteri
 
         print_message('epoch:{}, av loss:{}'.format(ep_idx + 1, epoch_loss / (epoch_size) ))
 
-        eval_model(model, model_eval_fn, dataloader_test, model_dir, suffix=ep_idx)
+        eval_model(model, get_scores, dataloader_test, model_dir, suffix=ep_idx)
 
         print('saving_model')
 
@@ -383,8 +351,5 @@ def train_model(model, dataloader_train, dataloader_test, model_eval_fn, criteri
 
 
 if args.train:
-    train_model(model, dataloader_train, dataloader_test, model_eval_fn, criterion, optimizer, model_dir, encoding=encoding, num_epochs=args.num_epochs, continue_epoch=args.continue_epoch)
-if args.encode:
-    encode(model, tokenizer, args.collection, model_eval_fn, dataloader_encode, model_dir, encode_query=args.encode_query)
-else:
-    eval_model(model, model_eval_fn, dataloader_test, model_dir, save_hidden_states=args.save_last_hidden, eval_strategy=args.eval_strategy)
+    train_model(model, dataloader_train, dataloader_train_2, dataloader_test, get_scores, criterion, optimizer, model_dir, encoding=encoding, num_epochs=args.num_epochs, continue_epoch=args.continue_epoch)
+eval_model(model, get_scores, dataloader_test, model_dir, save_hidden_states=args.save_last_hidden, eval_strategy=args.eval_strategy)

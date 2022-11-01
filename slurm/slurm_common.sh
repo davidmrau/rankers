@@ -6,6 +6,7 @@ module purge
 module load eb
 module load 2021
 module load CUDA/11.3.1
+module load Python/3.9.5-GCCcore-10.3.0
 #module load cuDNN
 export PYTHONIOENCODING='utf-8'
 cd ..

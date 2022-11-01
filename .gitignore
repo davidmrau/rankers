@@ -1,0 +1,11 @@
+splade_max
+slurm
+data
+project
+*.swn
+*.swp
+models
+data_interpolation
+__pycache__
+fairseq
+bow-bert

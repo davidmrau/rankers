@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch
 from bert_tf import BERT_TF, BERT_TF_Config
 import time 
+import numpy as np 
 
 class MarginMSELoss(nn.Module):
     def __init__(self):
@@ -35,7 +36,8 @@ def get_model(model_name, checkpoint=None, **kwargs):
     if 'no_pos' == model_name:
 
         tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased', truncation_side=kwargs['truncation_side'])
-        model = AutoModelForSequenceClassification.from_pretrained('/project/draugpu/experiments_cikm/bert/bz_128_lr_3e-06_no_pos_emb/model_20/')
+        #model = AutoModelForSequenceClassification.from_pretrained('/project/draugpu/experiments_cikm/bert/bz_128_lr_3e-06_no_pos_emb/model_20/')
+        model = AutoModelForSequenceClassification.from_pretrained('dmrau/bow-bert')
         encoding = 'cross'
        
         def get_scores(model, features, index, save_hidden_states=False):
@@ -77,8 +79,23 @@ def get_model(model_name, checkpoint=None, **kwargs):
             return return_dict
 
     elif 'crossencoder' == model_name:
+        model_name = "/project/draugpu/experiments_ictir/bert/bz_128_lr_3e-06/model_30/"
+        tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased', truncation_side=kwargs['truncation_side'])
+        model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        encoding = 'cross' 
+        def get_scores(model, features, index, save_hidden_states=False):
+            encoded_input = features['encoded_input'][index]
+            out_raw = model(**encoded_input.to('cuda'), output_hidden_states=save_hidden_states)
+            scores = out_raw.logits[:, 1]
+            return_dict = {}
+            return_dict['scores'] = scores
+            if save_hidden_states:
+                return_dict['last_hidden'] = out_raw['hidden_states'][-1][:,0,:]
+            return return_dict
+
+    elif 'nboost_crossencoder' == model_name:
         model_name = "nboost/pt-bert-base-uncased-msmarco"
-        tokenizer = AutoTokenizer.from_pretrained(model_name,truncation_side=kwargs['truncation_side'] )
+        tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased', truncation_side=kwargs['truncation_side'])
         model = AutoModelForSequenceClassification.from_pretrained(model_name)
         encoding = 'cross'
 
@@ -190,11 +207,10 @@ def get_model(model_name, checkpoint=None, **kwargs):
 
     elif 'minilm12' == model_name:
         model_name = 'cross-encoder/ms-marco-MiniLM-L-12-v2'
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        tokenizer = AutoTokenizer.from_pretrained(model_name, truncation_side=kwargs['truncation_side'])
         model = AutoModelForSequenceClassification.from_pretrained(model_name)
-        encoding = 'cross'
-
-        def get_scores(model, features, index):
+        encoding = 'cross'        
+        def get_scores(model, features, index, save_hidden_states=False):
             encoded_input = features['encoded_input'][index]
             out_raw = model(**encoded_input.to('cuda'))
             scores = out_raw.logits[:, 0]
@@ -277,18 +293,37 @@ def get_model(model_name, checkpoint=None, **kwargs):
     elif 'splade' == model_name:
         model_name = 'splade_max'
         encoding = 'bi'
-        model = Splade(model_name, agg='max')
         tokenizer = AutoTokenizer.from_pretrained(model_name)
+        reverse_voc = {v: k for k, v in tokenizer.vocab.items()}
+        model = Splade(model_name)
 
-        def get_scores(model, features, index):
-            encoded_queries = features['encoded_queries']
-            encoded_docs = features['encoded_docs'][index]
-            emb_queries = model(**encoded_queries.to('cuda'))
-            emb_docs = model(**encoded_docs.to('cuda'))
-            scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
-            return_dict = {}
-            return_dict['scores'] = scores
-            return return_dict
+        def get_weight_dicts(batch_aggregated_logits):
+            to_return = []
+            for aggregated_logits in batch_aggregated_logits:
+                col = np.nonzero(aggregated_logits)[0]
+                weights = aggregated_logits[col]
+                d = {reverse_voc[k]: float(v) for k, v in zip(list(col), list(weights))}
+                to_return.append(d)
+            return to_return
+
+
+        if kwargs['encoding']:
+            def get_scores(model, features, index, save_hidden_states=False):
+                pids, encoded_docs = features
+                logits = model(**encoded_docs.to('cuda')).cpu().detach().numpy()
+                weight_dicts = get_weight_dicts(logits)
+                return pids, weight_dicts
+        else:
+            def get_scores(model, features, index, save_hidden_states=False):
+                encoded_queries = features['encoded_queries']
+                encoded_docs = features['encoded_docs'][index]
+                emb_queries = model(**encoded_queries.to('cuda'))
+                emb_docs = model(**encoded_docs.to('cuda'))
+                scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
+                return_dict = {}
+                return_dict['scores'] = scores
+                return return_dict
+
 
     elif 'monolarge' == model_name:
         model_name = 'castorini/monobert-large-msmarco-finetune-only' 

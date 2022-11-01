@@ -4,17 +4,26 @@ import transformers
 import random
 from collections import defaultdict
 transformers.logging.set_verbosity_error()
-
+import gzip
 from transformers import BasicTokenizer
 
 class DataReader(torch.utils.data.IterableDataset):
                 
 
                 
-    def __init__(self, tokenizer, data_file, num_docs, multi_pass, id2q, id2d, MB_SIZE, qrel_columns={'doc': 0, 'query': 2, 'score': 4}, continue_line=None, encoding='cross', prepend_type=False, keep_q=False, drop_q=False, shuffle=False, sort=False, has_label_scores=False, max_q_len=None, max_inp_len=512, tf_embeds=False, sliding_window=False):
+    def __init__(self, tokenizer, data_file, num_docs, multi_pass, id2q, id2d, MB_SIZE, qrel_columns={'doc': 0, 'query': 2, 'score': 4}, continue_line=None, encoding='cross', prepend_type=False, keep_q=False, drop_q=False, preserve_q=False, shuffle=False, sort=False, has_label_scores=False, max_q_len=None, max_inp_len=512, tf_embeds=False, sliding_window=False, rand_length=False):
             print(data_file)
             self.num_docs = num_docs
             self.doc_col = 2 if self.num_docs <= 1 else 1
+
+            self.rs = defaultdict(list)
+
+            #for l in open('/home/draugpu/distributed_ir/ORACLE_tec4_kmeans'):
+            #    spl = l.rstrip().split()
+            #    query, index = spl[0], spl[2]
+            #    if len(self.rs[query]) < 10:
+            #        self.rs[query].append(index)
+
             self.MB_SIZE = MB_SIZE
             self.multi_pass = multi_pass
             self.id2d = id2d
@@ -23,8 +32,10 @@ class DataReader(torch.utils.data.IterableDataset):
             self.tokenizer = tokenizer
             self.prepend_type = prepend_type
             self.reader = open(data_file, mode='r', encoding="utf-8")
+            self.data_file = data_file
             self.keep_q = keep_q
             self.drop_q = drop_q
+            self.preserve_q = preserve_q
             self.shuffle = shuffle
             self.sort = sort
             self.tf_embeds = tf_embeds
@@ -33,6 +44,7 @@ class DataReader(torch.utils.data.IterableDataset):
             self.max_q_len = max_q_len
             self.max_inp_len = max_inp_len
             self.basic_tokenizer = BasicTokenizer()
+            self.rand_length = rand_length
             if continue_line != None:
                 print(f'continuing line {continue_line}')
             if continue_line:
@@ -42,6 +54,8 @@ class DataReader(torch.utils.data.IterableDataset):
             self.reader.seek(0)
             self.qrel_columns = qrel_columns
     
+            
+                
 
     def __iter__(self):
             self.ignored_docs = 0
@@ -58,8 +72,13 @@ class DataReader(torch.utils.data.IterableDataset):
                     features['encoded_input'] = list()
                     features['tf_embeds'] = list()
                     batch_queries, batch_docs, batch_q_lengths, batch_d_lengths = list(), list(), list(), list()
+                    if self.rand_length:
+                        self.max_inp_len = random.choice([32, 64, 128, 256, 512]) 
+                        if self.max_inp_len == 32 or self.max_inp_len == 64:
+                            self.max_q_len = 16
+                        else:
+                            self.max_q_len = None
                     while len(batch_queries) < self.MB_SIZE:
-                            
                         row = self.reader.readline()
                         if row == '':
                                 if self.multi_pass:
@@ -73,13 +92,17 @@ class DataReader(torch.utils.data.IterableDataset):
                                         self.done = True
                                         break
                         cols = row.split()
-
+                        q_id = cols[0]
+                        #index = self.data_file.split('/')[-1].split('.')[1]
+                        #if len(self.rs[q_id]) == 0:
+                        #    return
+                        #if index not in self.rs[q_id]:
+                        #    continue
                         q = self.id2q[cols[0]]
                         # get doc_ids       
-                        ds_ids = [  cols[self.doc_col + i].strip() for i in range(self.num_docs)]   
+                        ds_ids = [  cols[self.doc_col + i].strip() for i in range(self.num_docs)] 
                         # get doc content
                         ds = [self.id2d[id_] for id_ in ds_ids]
-
                         # if any of the docs is None skip triplet   
                         if any(x is None for x in ds) or q is None:
                                 self.ignored_docs += 1
@@ -96,6 +119,9 @@ class DataReader(torch.utils.data.IterableDataset):
                         if self.keep_q:
                             ds = [self.keep_query_terms(q, d_) for d_ in ds]
 
+                        if self.preserve_q:
+                            ds = [self.preserve_query_terms(q, d_) for d_ in ds]
+
                         if self.has_label_scores:
                             features['labels_1'].append(float(cols[3]))
                             features['labels_2'].append(float(cols[4]))
@@ -103,13 +129,12 @@ class DataReader(torch.utils.data.IterableDataset):
                         if self.sliding_window:  
                                 d_tokenized = self.basic_tokenizer.tokenize(ds[-1])
                                 d_tokenized = d_tokenized
-                                len_chunk = 150
-                                stride = 75
+                                len_chunk = 512
+                                stride = 256
 
                                 chunks = [d_tokenized[i:i+len_chunk] for i in range(0, len(d_tokenized), len_chunk-stride)]
                                 if len(chunks) > 30:
                                     chunks = [chunks[0]] + [chunks[i] for i in random.sample(range(1, len(chunks)-1), 28)] + [chunks[-1]]
-                                print(len(d_tokenized), len(chunks))
                                 for chunk in chunks:
                                     batch_docs.append([' '.join(chunk)])
                                     batch_queries.append(q)
@@ -119,10 +144,9 @@ class DataReader(torch.utils.data.IterableDataset):
                                 features['meta'].append([cols[self.qrel_columns['doc']], cols[self.qrel_columns['query']]])
                             batch_queries.append(q)
                             batch_docs.append(ds)
-
                     if self.encoding == 'bi':
                         batch_queries = self.tokenizer(batch_queries, padding=True, return_tensors="pt", truncation=True)
-                        batch_docs = [self.tokenizer([bd[i] for bd in batch_docs], padding=True, return_tensors="pt", truncation=True) for i in range(self.num_docs)]
+                        batch_docs = [self.tokenizer([bd[i] for bd in batch_docs], padding=True, return_tensors="pt", truncation=True, max_length=self.max_inp_len) for i in range(self.num_docs)]
                         features['encoded_queries'] = batch_queries 
                         features['encoded_docs'] = batch_docs
                         if self.sort:
@@ -142,10 +166,10 @@ class DataReader(torch.utils.data.IterableDataset):
                     if self.tf_embeds:
                         features['tf_embeds'] = [self.get_tf_embeds(inp['input_ids']) for inp in features['encoded_input']]
                     if not first_batch:
-                        dids = [ el[1] for el in features['meta']]
-                        idxs = random.sample(range(len(dids)), 2)
+                        #dids = [ el[1] for el in features['meta']]
+                        idxs = random.sample(range(len(ds_ids)), 1)
                         for idx in idxs:
-                            print(dids[idx], self.tokenizer.decode(features['encoded_input'][-1]['input_ids'][idx]))
+                            print(ds_ids[idx], self.tokenizer.decode(features['encoded_input'][-1]['input_ids'][idx]))
                         first_batch=True
                     yield features
 
@@ -178,6 +202,18 @@ class DataReader(torch.utils.data.IterableDataset):
                 d_keep.append(self.tokenizer.mask_token)
         return ' '.join(d_keep)
 
+        
+    def preserve_query_terms(self, q, d):
+        q_set_tokenized = set(self.basic_tokenizer.tokenize(q))
+        d_tokenized = self.basic_tokenizer.tokenize(d)
+        d_keep = []
+        for d_term in d_tokenized:
+            if d_term in q_set_tokenized:
+                d_keep.append(d_term)
+                d_keep.append(d_term)
+            else:
+                d_keep.append(d_term)
+        return ' '.join(d_keep)
 
     def shuffle_fn(self, sent):
         sent_tokenized = self.basic_tokenizer.tokenize(sent)
@@ -254,3 +290,22 @@ class DataReader(torch.utils.data.IterableDataset):
 
 
             
+class MSMARCO(torch.utils.data.IterableDataset):
+    def __init__(self, file_, tokenizer, max_len):
+        self.file_ = file_
+        self.tokenizer = tokenizer
+        self.max_len = max_len
+    def __iter__(self):
+        if self.file_.endswith('.gz'):
+            open_fn = gzip.open
+        else:
+            open_fn = open
+        with open_fn(self.file_, 'rt', encoding='utf-8') as f:
+            for i, line in enumerate(f):
+                pid, passage = line.split('\t')
+                yield (pid, passage)
+    def collate_fn(self, inp):
+        pid, data = [x[0] for x in inp], [x[1] for x in inp]
+        tokenized = self.tokenizer(data, add_special_tokens=True, padding=True,truncation=True, return_tensors='pt', max_length=self.max_len)
+        return (pid, tokenized)
+

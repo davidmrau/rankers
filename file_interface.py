@@ -1,5 +1,5 @@
 import numpy as np
-		
+import gzip
 class File():
 	def __init__(self, fname, encoded=True):
 		self.file = {}
