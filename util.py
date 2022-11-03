@@ -1,7 +1,7 @@
 
 from bert_cat import BERT_Cat
-from splade import Splade
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModel, AutoModelForSeq2SeqLM, T5Tokenizer, AutoModelForMaskedLM, RobertaTokenizer, BertTokenizer, BertForSequenceClassification, BertConfig
+from splade import Splade, SpladeConfig
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModel, AutoModelForSeq2SeqLM, T5Tokenizer, AutoModelForMaskedLM, RobertaTokenizer, BertTokenizer, BertForSequenceClassification, BertConfig, AutoConfig
 from fairseq.models.roberta import RobertaModel
 import torch.nn as nn
 import torch
@@ -295,7 +295,8 @@ def get_model(model_name, checkpoint=None, **kwargs):
         encoding = 'bi'
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         reverse_voc = {v: k for k, v in tokenizer.vocab.items()}
-        model = Splade(model_name)
+        config = SpladeConfig()
+        model = Splade(config)
 
         def get_weight_dicts(batch_aggregated_logits):
             to_return = []
@@ -315,16 +316,28 @@ def get_model(model_name, checkpoint=None, **kwargs):
                 return pids, weight_dicts
         else:
             def get_scores(model, features, index, save_hidden_states=False):
+                return_dict = {}
                 encoded_queries = features['encoded_queries']
                 encoded_docs = features['encoded_docs'][index]
                 emb_queries = model(**encoded_queries.to('cuda'))
                 emb_docs = model(**encoded_docs.to('cuda'))
-                return_dict['l1_queries'] = torch.sum(torch.abs(emb_queries), dim=-1).mean()
-                print(return_dict['l1_queries'])
-                return_dict['l1_docs'] = torch.sum(torch.abs(emb_docs), dim=-1).mean()
+                def l1(batch_rep):
+                    return torch.sum(torch.abs(batch_rep), dim=-1).mean()
+
+                def flops(batch_rep):
+                    return torch.sum(torch.mean(torch.abs(batch_rep), dim=0) ** 2)
+                def l0(batch_rep):
+                    return torch.count_nonzero(batch_rep, dim=-1).float().mean()
+
+                def unused_dims(batch_rep):
+                    return torch.count_nonzero(batch_rep, dim=0).float().mean()
+                    
+                return_dict['l1_queries'] = flops(emb_queries)
+                return_dict['l1_docs'] = flops(emb_docs)
                 scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
-                return_dict = {}
                 return_dict['scores'] = scores
+                return_dict['l0_docs'] = l0(emb_docs)
+                return_dict['unused_dims'] = unused_dims(emb_docs)
                 return return_dict
     elif 'splade' == model_name:
         model_name = 'splade_max'

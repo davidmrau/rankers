@@ -119,17 +119,17 @@ elif args.dataset == '2021':
     ID2Q_TEST = "data/msmarco_2/2021_queries.tsv"
     ID2DOC_train = 'data/msmarco_2/passages_provided_top_100.tsv'
 
-elif args.dataset == '2022_docs_plm':
-    QRELS_TEST = ""
+elif args.dataset == '2022_docs':
+    QRELS_TEST = "data/msmarco_2/2022.qrels.docs.inferred.txt"
     ID2Q_TEST = "data/msmarco_2/2022_queries.tsv"
     DATA_FILE_TEST = "data/msmarco_2/2022_document_top100.txt"
-    ID2DOC_train = 'data/msmarco_2/all_docs_2022_plm.tsv'
+    ID2DOC_train = 'data/msmarco_2/2022_docs_nist.tsv'
 
-elif args.dataset == '2021_docs_plm':
+elif args.dataset == '2021_docs':
     QRELS_TEST = "data/msmarco_docs/2021.qrels.docs.final.txt"
     ID2Q_TEST = "data/msmarco_docs/2021_queries.tsv"
     DATA_FILE_TEST = "data/msmarco_docs/2021_document_top100_judged.txt"
-    ID2DOC_test = 'data/msmarco_docs/2021_msmarco_v2_judged.tsv_plm_512'
+    ID2DOC_test = 'data/msmarco_docs/msmarco_v2_2021_judged.tsv'
 
 elif args.dataset == '2019':
     QRELS_TEST = "data/msmarco/2019qrels-pass.txt"
@@ -164,8 +164,6 @@ if args.run != None:
 model, tokenizer, model_eval_fn, encoding, prepend_type = get_model(args.model, args.checkpoint, truncation_side=args.truncation_side, encoding=args.encode)
 
 
-
-    
 # instantiate Data Reader
 if args.train:
     id2d_train = File(ID2DOC_train, encoded=False)
@@ -178,7 +176,7 @@ if args.encode:
     dataloader_encode = DataLoader(dataset, batch_size=args.mb_size_test, num_workers=1, collate_fn=dataset.collate_fn)
 else:
     if ID2DOC_test == None:
-        id2d_test = id2d_train
+        id2d_test = File(ID2DOC_train, encoded=False)
     else:
         id2d_test = File(ID2DOC_test, encoded=False)
 
@@ -246,31 +244,36 @@ def encode(model, tokenizer, collection, model_eval_fn, dataloader, model_dir, e
     model.eval()
     batch_latency = []
     perf_monitor = PerformanceMonitor.get()
-    type_ = '_query_encoded' if encode_query else '_docs_encoded'
-    out_fname = f'/project/draugpu/encode/{args.collection.split("/")[-1]}{type_}.txt.gz'
+
+    out_fname = f'/project/draugpu/encode/{args.collection.split("/")[-1]}{type_}'
     weight_range = 5
     quant_range = 256
-    with gzip.open(out_fname, 'wt', encoding='utf-8') as f:
-        for num_i, features in tqdm(enumerate(dataloader)):
-            with torch.no_grad():
-                ids, latent_terms = model_eval_fn(model, features, index=0)
+    if encode_query: 
+        f = open(f"{out_fname}_query_encoded.tsv", 'w', encoding='utf-8')
+    else:
+        f = gzip.open(f"{out_fname}_docs_encoded.tsv.gz", 'wt', encoding='utf-8')
+        
+    for num_i, features in tqdm(enumerate(dataloader)):
+        with torch.no_grad():
+            ids, latent_terms = model_eval_fn(model, features, index=0)
 
-                # decode and print random sample
-                if num_i == 0:
-                    idxs = random.sample(range(len(ids)), 1)
-                    for idx in idxs:
-                        print(ids[idx], tokenizer.decode(features[1]['input_ids'][idx]))
+            # decode and print random sample
+            if num_i == 0:
+                idxs = random.sample(range(len(ids)), 1)
+                for idx in idxs:
+                    print(ids[idx], tokenizer.decode(features[1]['input_ids'][idx]))
 
-                for id_, latent_term in zip(ids, latent_terms):
-                    if encode_query:
-                        pseudo_str = []
-                        for tok, weight in latent_term.items():
-                            weight_quanted = int(np.round(weight/weight_range*quant_range))
-                            pseudo_str += [tok] * weight_quanted
-                        latent_term = " ".join(pseudo_str)
-                        f.write(f"{id_}\t{latent_term}\n")
-                    else:
-                        f.write( json.dumps({"id": id_, "vector": latent_term }) + '\n')
+            for id_, latent_term in zip(ids, latent_terms):
+                if encode_query:
+                    pseudo_str = []
+                    for tok, weight in latent_term.items():
+                        #weight_quanted = int(np.round(weight/weight_range*quant_range))
+                        weight_quanted = int(np.round(weight*100))
+                        pseudo_str += [tok] * weight_quanted
+                    latent_term = " ".join(pseudo_str)
+                    f.write(f"{id_}\t{latent_term}\n")
+                else:
+                    f.write( json.dumps({"id": id_, "vector": latent_term }) + '\n')
 
 
 
@@ -350,8 +353,8 @@ def train_model(model, dataloader_train, dataloader_test, model_eval_fn, criteri
             except StopIteration:
                 batch_iterator = iter(dataloader_train)
                 continue
-            scores_doc_1, scores_doc_2 = model_eval_fn(model, features, index=0)['scores'], model_eval_fn(model, features, index=1)['scores']
-
+            out_1, out_2 = model_eval_fn(model, features, index=0), model_eval_fn(model, features, index=1)
+            scores_doc_1, scores_doc_2 = out_1['scores'], out_2['scores']
             optimizer.zero_grad()
 
             if args.mse_loss:
@@ -363,11 +366,14 @@ def train_model(model, dataloader_train, dataloader_test, model_eval_fn, criteri
                 train_loss = criterion(scores, features['labels'].long().to('cuda'))
             else:
                 raise NotImplementedError()
-
             if args.l1:
-                l1_loss = (scores_doc_1['l1_queries'].mean() + ((scores_doc_1['l1_docs'].mean() +  scores_doc_2['l1_docs'].mean()) / 2) ) * 0.0001
+                l1_loss = (out_1['l1_queries'] + ((out_1['l1_docs'] +  out_2['l1_docs']) / 2) ) * 0.0001
+                l0_loss = (( out_1['l0_docs'] + out_2['l0_docs']) /2 )
+                unused_dims = (( out_1['unused_dims'] + out_2['unused_dims']) /2 )
             else:
                 l1_loss = 0
+                l0_loss = 0
+                unused_dims = 0
             train_loss += l1_loss
             total_examples_seen += scores_doc_1.shape[0]
             train_loss.backward()
@@ -375,7 +381,7 @@ def train_model(model, dataloader_train, dataloader_test, model_eval_fn, criteri
             epoch_loss += train_loss.item()
             if mb_idx % log_every == 0:
                     print(f'MB {mb_idx + 1}/{epoch_size}')
-                    print_message('examples:{}, train_loss:{}, l1_loss:{}'.format(total_examples_seen, train_loss, l1_loss))
+                    print_message('examples:{}, train_loss:{}, l1_loss:{}, l0_loss:{}, unused:{}'.format(total_examples_seen, train_loss, l1_loss, l0_loss, unused_dims))
                     writer.add_scalar('Train/Train Loss', train_loss, total_examples_seen)
             mb_idx += 1
 

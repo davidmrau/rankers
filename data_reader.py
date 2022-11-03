@@ -149,6 +149,11 @@ class DataReader(torch.utils.data.IterableDataset):
                         batch_docs = [self.tokenizer([bd[i] for bd in batch_docs], padding=True, return_tensors="pt", truncation=True, max_length=self.max_inp_len) for i in range(self.num_docs)]
                         features['encoded_queries'] = batch_queries 
                         features['encoded_docs'] = batch_docs
+                        if not first_batch:
+                            idxs = random.sample(range(len(ds_ids)), 1)
+                            for idx in idxs:
+                                print(ds_ids[idx], self.tokenizer.decode(features['encoded_docs'][0]['input_ids'][idx]))
+                            first_batch=True
                         if self.sort:
                             raise NotImplementedError()
 
@@ -158,6 +163,12 @@ class DataReader(torch.utils.data.IterableDataset):
                         features['encoded_input'] = [self.tokenizer(batch_queries, [bd[i] for bd in batch_docs], padding=True, truncation='only_second', return_tensors='pt', return_token_type_ids=True, max_length=self.max_inp_len)  for i in range(self.num_docs)]
                         if self.sort:
                             features['encoded_input'] = [ self.sort_fn(el) for  el in  features['encoded_input']]
+                        if not first_batch:
+                            #dids = [ el[1] for el in features['meta']]
+                            idxs = random.sample(range(len(ds_ids)), 1)
+                            for idx in idxs:
+                                print(ds_ids[idx], self.tokenizer.decode(features['encoded_input'][-1]['input_ids'][idx]))
+                            first_batch=True
                         
                         
                     #elif self.encoding == 'cross_fairseq':
@@ -165,12 +176,6 @@ class DataReader(torch.utils.data.IterableDataset):
                       #  features['encoded_input'] = batch
                     if self.tf_embeds:
                         features['tf_embeds'] = [self.get_tf_embeds(inp['input_ids']) for inp in features['encoded_input']]
-                    if not first_batch:
-                        #dids = [ el[1] for el in features['meta']]
-                        idxs = random.sample(range(len(ds_ids)), 1)
-                        for idx in idxs:
-                            print(ds_ids[idx], self.tokenizer.decode(features['encoded_input'][-1]['input_ids'][idx]))
-                        first_batch=True
                     yield features
 
                     if self.done:
