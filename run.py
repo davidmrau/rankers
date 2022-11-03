@@ -48,6 +48,8 @@ parser.add_argument("--encode", action='store_true')
 parser.add_argument("--encode_query", action='store_true')
 parser.add_argument("--save_last_hidden", action='store_true')
 
+parser.add_argument("--l1", action='store_true')
+
 parser.add_argument("--tf_embeds", action='store_true')
 
 parser.add_argument("--no_pos_emb", action='store_true')
@@ -362,13 +364,18 @@ def train_model(model, dataloader_train, dataloader_test, model_eval_fn, criteri
             else:
                 raise NotImplementedError()
 
+            if args.l1:
+                l1_loss = (scores_doc_1['l1_queries'].mean() + ((scores_doc_1['l1_docs'].mean() +  scores_doc_2['l1_docs'].mean()) / 2) ) * 0.0001
+            else:
+                l1_loss = 0
+            train_loss += l1_loss
             total_examples_seen += scores_doc_1.shape[0]
             train_loss.backward()
             optimizer.step()
             epoch_loss += train_loss.item()
             if mb_idx % log_every == 0:
                     print(f'MB {mb_idx + 1}/{epoch_size}')
-                    print_message('examples:{}, train_loss:{}'.format(total_examples_seen, train_loss))
+                    print_message('examples:{}, train_loss:{}, l1_loss:{}'.format(total_examples_seen, train_loss, l1_loss))
                     writer.add_scalar('Train/Train Loss', train_loss, total_examples_seen)
             mb_idx += 1
 

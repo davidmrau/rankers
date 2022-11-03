@@ -290,6 +290,42 @@ def get_model(model_name, checkpoint=None, **kwargs):
         encoding = 'bi'
 
 
+    elif 'sparse_bert' == model_name:
+        model_name = 'bert-base-uncased'
+        encoding = 'bi'
+        tokenizer = AutoTokenizer.from_pretrained(model_name)
+        reverse_voc = {v: k for k, v in tokenizer.vocab.items()}
+        model = Splade(model_name)
+
+        def get_weight_dicts(batch_aggregated_logits):
+            to_return = []
+            for aggregated_logits in batch_aggregated_logits:
+                col = np.nonzero(aggregated_logits)[0]
+                weights = aggregated_logits[col]
+                d = {reverse_voc[k]: float(v) for k, v in zip(list(col), list(weights))}
+                to_return.append(d)
+            return to_return
+
+
+        if kwargs['encoding']:
+            def get_scores(model, features, index, save_hidden_states=False):
+                pids, encoded_docs = features
+                logits = model(**encoded_docs.to('cuda')).cpu().detach().numpy()
+                weight_dicts = get_weight_dicts(logits)
+                return pids, weight_dicts
+        else:
+            def get_scores(model, features, index, save_hidden_states=False):
+                encoded_queries = features['encoded_queries']
+                encoded_docs = features['encoded_docs'][index]
+                emb_queries = model(**encoded_queries.to('cuda'))
+                emb_docs = model(**encoded_docs.to('cuda'))
+                return_dict['l1_queries'] = torch.sum(torch.abs(emb_queries), dim=-1).mean()
+                print(return_dict['l1_queries'])
+                return_dict['l1_docs'] = torch.sum(torch.abs(emb_docs), dim=-1).mean()
+                scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
+                return_dict = {}
+                return_dict['scores'] = scores
+                return return_dict
     elif 'splade' == model_name:
         model_name = 'splade_max'
         encoding = 'bi'
