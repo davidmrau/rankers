@@ -19,8 +19,9 @@ MAP=`deci $MAP`
 RECIP=`deci $RECIP`
 RECALL=`deci $RECALL`
 BPREF=`deci $BPREF`
-echo NDCG " & " MAP " & " RECIP " & " RECALL " & " BPREF \\\\  
-echo $NDCG " & " $MAP " & " $RECIP " & " $RECALL " & " $BPREF \\\\  
+#echo NDCG " & " MAP " & " RECIP " & " RECALL " & " BPREF \\\\  
+#echo NDCG " & " MAP " & " RECALL " & " BPREF \\\\  
+echo $NDCG " & " $MAP " & " $RECALL " & " $BPREF \\\\  
 
 
 

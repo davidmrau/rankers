@@ -2,13 +2,14 @@
 from bert_cat import BERT_Cat
 from splade import Splade, SpladeConfig
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModel, AutoModelForSeq2SeqLM, T5Tokenizer, AutoModelForMaskedLM, RobertaTokenizer, BertTokenizer, BertForSequenceClassification, BertConfig, AutoConfig
+from transformers import LongformerTokenizer, LongformerForSequenceClassification
 from fairseq.models.roberta import RobertaModel
 import torch.nn as nn
 import torch
 from bert_tf import BERT_TF, BERT_TF_Config
 import time 
 import numpy as np 
-
+from idcm import IDCM_InferenceOnly
 class MarginMSELoss(nn.Module):
     def __init__(self):
         super(MarginMSELoss, self).__init__()
@@ -78,10 +79,53 @@ def get_model(model_name, checkpoint=None, **kwargs):
             return_dict['scores'] = scores
             return return_dict
 
+
+
+    elif 'longformer' == model_name:
+        tokenizer = LongformerTokenizer.from_pretrained("jpwahle/longformer-base-plagiarism-detection")
+        model = LongformerForSequenceClassification.from_pretrained("jpwahle/longformer-base-plagiarism-detection")
+        encoding = 'cross'        
+        def get_scores(model, features, index, save_hidden_states=False):
+            encoded_input = features['encoded_input'][index]
+            out_raw = model(**encoded_input.to('cuda'))
+            scores = out_raw.logits[:, 0]
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
+
+    elif 'longformer-qa' == model_name:
+        tokenizer = AutoTokenizer.from_pretrained("aware-ai/longformer-QA")
+        model = AutoModelForSequenceClassification.from_pretrained("aware-ai/longformer-QA")
+        encoding = 'cross'        
+        def get_scores(model, features, index, save_hidden_states=False):
+            encoded_input = features['encoded_input'][index]
+            out_raw = model(**encoded_input.to('cuda'))
+            scores = out_raw.logits[:, 0]
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
+
+
+    elif 'bigbert' == model_name:
+        tokenizer = AutoTokenizer.from_pretrained("google/bigbird-roberta-base")
+        model = AutoModelForSequenceClassification.from_pretrained("google/bigbird-roberta-base")
+        encoding = 'cross'        
+        def get_scores(model, features, index, save_hidden_states=False):
+            encoded_input = features['encoded_input'][index]
+            out_raw = model(**encoded_input.to('cuda'))
+            scores = out_raw.logits[:, 0]
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
+
+
+
     elif 'crossencoder' == model_name:
-        model_name = "/project/draugpu/experiments_ictir/bert/bz_128_lr_3e-06/model_30/"
         tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased', truncation_side=kwargs['truncation_side'])
-        model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        if checkpoint == None:
+            #model_name = "/project/draugpu/experiments_ictir/bert/bz_128_lr_3e-06/model_30/"
+            model_name = "/scratch-shared/draugpu/model_30/"
+            model = AutoModelForSequenceClassification.from_pretrained(model_name)
         encoding = 'cross' 
         def get_scores(model, features, index, save_hidden_states=False):
             encoded_input = features['encoded_input'][index]
@@ -91,6 +135,23 @@ def get_model(model_name, checkpoint=None, **kwargs):
             return_dict['scores'] = scores
             if save_hidden_states:
                 return_dict['last_hidden'] = out_raw['hidden_states'][-1][:,0,:]
+            return return_dict
+
+
+
+    elif 'idcm' == model_name:
+        tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased") # honestly not sure if that is the best way to go, but it works :)
+        model = IDCM_InferenceOnly.from_pretrained("sebastian-hofstaetter/idcm-distilbert-msmarco_doc")
+        encoding = 'bi'
+        def get_scores(model, features, index, save_hidden_states=False):
+            encoded_queries = features['encoded_queries']
+            encoded_docs = features['encoded_docs'][index]
+            start = time.time()
+            scores = model(query=encoded_queries.to('cuda'), document=encoded_docs.to('cuda'))
+            finish = (time.time() - start)
+            return_dict = {}
+            return_dict['scores'] = scores
+            return_dict['time'] = finish
             return return_dict
 
     elif 'nboost_crossencoder' == model_name:
@@ -241,9 +302,8 @@ def get_model(model_name, checkpoint=None, **kwargs):
         def get_scores(model, features, index, save_hidden_states=False):
             encoded_queries = features['encoded_queries']
             encoded_docs = features['encoded_docs'][index]
-
-            emb_queries = model(**encoded_queries.to('cuda'))[0][:,0,:].squeeze(0)
-            emb_docs = model(**encoded_docs.to('cuda'))[0][:,0,:].squeeze(0)
+            emb_queries = model(**encoded_queries.to('cuda')).last_hidden_state[:,0,:].squeeze(0)
+            emb_docs = model(**encoded_docs.to('cuda')).last_hidden_state[:,0,:].squeeze(0)
             scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
             return_dict = {}
             return_dict['scores'] = scores
@@ -463,19 +523,28 @@ def get_model(model_name, checkpoint=None, **kwargs):
             input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
             return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
 
+        if kwargs['encoding']:
+            def get_scores(model, features, index, save_hidden_states=False):
+                pids, encoded_docs = features
+                emb_docs = model(**encoded_docs.to('cuda'))
+                emb_docs_av = mean_pooling(emb_docs, encoded_docs['attention_mask'])
+                return pids, emb_docs_av
 
-        def get_scores(model, features, index):
-            encoded_queries = features['encoded_queries']
-            encoded_docs = features['encoded_docs'][index]
-            emb_queries = model(**encoded_queries.to('cuda'))
-            emb_docs = model(**encoded_docs.to('cuda'))
-            emb_queries_av = mean_pooling(emb_queries, encoded_queries['attention_mask'])
-            emb_docs_av = mean_pooling(emb_docs, encoded_docs['attention_mask'])
-            scores = torch.bmm(emb_queries_av.unsqueeze(1), emb_docs_av.unsqueeze(-1)).squeeze()
-            return_dict = {}
-            return_dict['scores'] = scores
-            return return_dict
+        else:
+            def get_scores(model, features, index):
+                encoded_queries = features['encoded_queries']
+                encoded_docs = features['encoded_docs'][index]
+                emb_queries = model(**encoded_queries.to('cuda'))
+                emb_docs = model(**encoded_docs.to('cuda'))
+                emb_queries_av = mean_pooling(emb_queries, encoded_queries['attention_mask'])
+                emb_docs_av = mean_pooling(emb_docs, encoded_docs['attention_mask'])
+                scores = torch.bmm(emb_queries_av.unsqueeze(1), emb_docs_av.unsqueeze(-1)).squeeze()
+                return_dict = {}
+                return_dict['scores'] = scores
+                return return_dict
 
     if checkpoint != None:
+        print('loading from checkpoint', checkpoint)
         model = AutoModelForSequenceClassification.from_pretrained(checkpoint)
+        #model = AutoModel.from_pretrained(checkpoint)
     return model, tokenizer, get_scores, encoding, prepend_type

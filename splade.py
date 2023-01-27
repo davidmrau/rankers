@@ -15,7 +15,7 @@ class Splade(PreTrainedModel):
         self.bert_model = AutoModelForMaskedLM.from_pretrained('bert-base-uncased')
 
     def forward(self, **kwargs):
-        out = self.bert_model(input_ids=kwargs['input_ids'], attention_mask=kwargs['attention_mask'])["logits"] # output (logits) of MLM head, shape (bs, pad_len, voc_size)
+        out = self.bert_model(input_ids=kwargs['input_ids'])["logits"] # output (logits) of MLM head, shape (bs, pad_len, voc_size)
         out, _ = torch.max(torch.log(1 + torch.relu(out)) * kwargs["attention_mask"].unsqueeze(-1), dim=1)
         return out
 

@@ -28,7 +28,7 @@ from performance_monitor import PerformanceMonitor
 parser = argparse.ArgumentParser()
 parser.add_argument("--add_to_dir", type=str, default='')
 parser.add_argument("--model", type=str, required=True )
-parser.add_argument("--experiment_folder", type=str, required=True )
+parser.add_argument("--out_folder", type=str, required=True )
 parser.add_argument("--dataset", type=str, required=True )
 parser.add_argument("--mb_size_test", type=int, default=128)
 parser.add_argument("--num_epochs", type=int, default=10)
@@ -39,7 +39,7 @@ parser.add_argument("--run", type=str, default=None)
 parser.add_argument("--mb_size_train", type=int, default=1024)
 parser.add_argument("--single_gpu", action='store_true')
 parser.add_argument("--eval_metric", default='ndcg_cut_10')
-parser.add_argument("--learning_rate", type=float, default=0.00001)
+parser.add_argument("--learning_rate", type=float, default=0.00002)
 parser.add_argument("--checkpoint", type=str, default=None)
 parser.add_argument("--truncation_side", type=str, default='right')
 parser.add_argument("--continue_epoch", type=int, default=0)
@@ -48,8 +48,8 @@ parser.add_argument("--encode", action='store_true')
 parser.add_argument("--encode_query", action='store_true')
 parser.add_argument("--save_last_hidden", action='store_true')
 
-parser.add_argument("--l1", action='store_true')
-
+parser.add_argument("--aloss_scalar", type=float, default=0.00001)
+parser.add_argument("--aloss", action='store_true')
 parser.add_argument("--tf_embeds", action='store_true')
 
 parser.add_argument("--no_pos_emb", action='store_true')
@@ -60,7 +60,7 @@ parser.add_argument("--keep_q", action='store_true')
 parser.add_argument("--drop_q", action='store_true')
 parser.add_argument("--preserve_q", action='store_true')
 parser.add_argument("--mse_loss", action='store_true')
-
+parser.add_argument("--rand_passage", action='store_true')
 
 args = parser.parse_args()
 print(args)
@@ -109,7 +109,7 @@ elif args.dataset == '2019_docs':
     QRELS_TEST = "data/msmarco_docs/2020qrels-docs.txt"
     DATA_FILE_TEST = "data/msmarco_docs/msmarco-doctest2020-top100_judged" 
     ID2Q_TEST = "data/msmarco_docs/msmarco-test2020-queries.tsv"
-    ID2DOC_train = 'data/msmarco_docs/msmarco-docs.in_triples.tsv'
+    ID2DOC_train = 'data/msmarco_docs/msmarco-docs.in_triples.title+body.tsv'
     ID2DOC_test = 'data/msmarco_docs/msmarco-docs.tsv_test_2020.tsv'
     ID2Q_TRAIN = "data/msmarco_docs/msmarco-doctrain-queries.tsv" 
     DATA_FILE_TRAIN = "data/msmarco_docs/triples.tsv"
@@ -139,7 +139,8 @@ elif args.dataset == '2019':
 
 elif args.dataset == 'robust':
     QRELS_TEST = "data/robust_test/qrels.robust2004.txt"
-    DATA_FILE_TEST = "data/robust_test/run.robust04.bm25.no_stem.trec"
+    #DATA_FILE_TEST = "data/robust_test/run.robust04.bm25.no_stem.trec"
+    DATA_FILE_TEST = "data/robust_test/run.robust04.bm25.no_stem.trec_top_100"
     ID2Q_TEST = 'data/robust_test/04.testset_num_query_lower'
     ID2DOC_train = 'data/robust/robust04_raw_docs.num_query'
 
@@ -184,17 +185,15 @@ else:
     id2q_test = File(ID2Q_TEST, encoded=False)
 
 
-    dataset_test = DataReader(tokenizer, DATA_FILE_TEST, 1, False, id2q_test, id2d_test, args.mb_size_test, encoding=encoding, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, sliding_window=args.eval_strategy!='first_p' and args.eval_strategy != 'last_p')
+    dataset_test = DataReader(tokenizer, DATA_FILE_TEST, 1, False, id2q_test, id2d_test, args.mb_size_test, encoding=encoding, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, sliding_window=args.eval_strategy!='first_p' and args.eval_strategy != 'last_p', rand_passage=args.rand_passage)
     dataloader_test = DataLoader(dataset_test, batch_size=None, num_workers=0, pin_memory=False, collate_fn=dataset_test.collate_fn)
 
 model = model.to('cuda')
 
-#model_dir = f'/project/draugpu/project_new/{args.dataset}/{args.experiment_folder}/{args.model}/'
-model_dir = f'project/{args.dataset}/{args.experiment_folder}/{args.model}/'
-
+model_dir = f'{args.out_folder}/{args.dataset}_{args.model}'
 if not args.train:
     model_dir += args.add_to_dir
-    model_dir += '_eval'
+    model_dir += '_eval/'
 else:
     model_dir += f'bz_{args.mb_size_train}_lr_{args.learning_rate}'
     model_dir += args.add_to_dir
@@ -242,38 +241,49 @@ def encode(model, tokenizer, collection, model_eval_fn, dataloader, model_dir, e
 
 
     model.eval()
-    batch_latency = []
-    perf_monitor = PerformanceMonitor.get()
-
-    out_fname = f'/project/draugpu/encode/{args.collection.split("/")[-1]}{type_}'
-    weight_range = 5
-    quant_range = 256
+    
     if encode_query: 
-        f = open(f"{out_fname}_query_encoded.tsv", 'w', encoding='utf-8')
+        fname = f'{model_dir}/query_encoded_dict.p'
     else:
-        f = gzip.open(f"{out_fname}_docs_encoded.tsv.gz", 'wt', encoding='utf-8')
+        fname = f'{model_dir}/doc_encoded_dict.p'
+    emb_dict = {} 
+    with torch.no_grad():
+        for num_i, features in tqdm(enumerate(dataloader)):
+
+            with torch.inference_mode():
+                ids, embs = model_eval_fn(model, features, index=0)
+                for id_, emb_ in zip(ids, embs.detach().cpu().numpy()):
+                    emb_dict[id_] = emb_
+        pickle.dump(emb_dict, open(fname, 'wb'))
+                 
+
         
-    for num_i, features in tqdm(enumerate(dataloader)):
-        with torch.no_grad():
-            ids, latent_terms = model_eval_fn(model, features, index=0)
 
-            # decode and print random sample
-            if num_i == 0:
-                idxs = random.sample(range(len(ids)), 1)
-                for idx in idxs:
-                    print(ids[idx], tokenizer.decode(features[1]['input_ids'][idx]))
-
-            for id_, latent_term in zip(ids, latent_terms):
-                if encode_query:
-                    pseudo_str = []
-                    for tok, weight in latent_term.items():
-                        #weight_quanted = int(np.round(weight/weight_range*quant_range))
-                        weight_quanted = int(np.round(weight*100))
-                        pseudo_str += [tok] * weight_quanted
-                    latent_term = " ".join(pseudo_str)
-                    f.write(f"{id_}\t{latent_term}\n")
-                else:
-                    f.write( json.dumps({"id": id_, "vector": latent_term }) + '\n')
+    #if encode_query: 
+    #    f = open(f"{model_dir}_query_encoded.tsv", 'w', encoding='utf-8')
+    #else:
+    #    f = gzip.open(f"{model_dir}_docs_encoded.tsv.gz", 'wt', encoding='utf-8')
+#            # splade decode docs
+#
+#           weight_range = 5
+#            quant_range = 256
+#            # decode and print random sample
+#            if num_i == 0:
+#                idxs = random.sample(range(len(ids)), 1)
+#                for idx in idxs:
+#                    print(ids[idx], tokenizer.decode(features[1]['input_ids'][idx]))
+#
+#            for id_, latent_term in zip(ids, latent_terms):
+#                if encode_query:
+#                    pseudo_str = []
+#                    for tok, weight in latent_term.items():
+#                        #weight_quanted = int(np.round(weight/weight_range*quant_range))
+#                        weight_quanted = int(np.round(weight*100))
+#                        pseudo_str += [tok] * weight_quanted
+#                    latent_term = " ".join(pseudo_str)
+#                    f.write(f"{id_}\t{latent_term}\n")
+#                else:
+#                    f.write( json.dumps({"id": id_, "vector": latent_term }) + '\n')
 
 
 
@@ -285,7 +295,7 @@ def eval_model(model, model_eval_fn, dataloader_test, model_dir,  max_rank='1000
     perf_monitor = PerformanceMonitor.get()
     last_hidden = list()
     for num_i, features in tqdm(enumerate(dataloader_test)):
-        with torch.no_grad():
+        with torch.inference_mode():
             start_time = time.time()
             out = model_eval_fn(model, features, index=0, save_hidden_states=save_hidden_states)
             timer = time.time()-start_time
@@ -337,7 +347,7 @@ def eval_model(model, model_eval_fn, dataloader_test, model_dir,  max_rank='1000
     return eval_val
 
 
-def train_model(model, dataloader_train, dataloader_test, model_eval_fn, criterion, optimizer,  model_dir, encoding='cross', num_epochs=40, epoch_size=1000, log_every=10, save_every=1, continue_epoch=0):
+def train_model(model, dataloader_train, dataloader_test, model_eval_fn, criterion, optimizer,  model_dir, encoding='cross', num_epochs=40, epoch_size=1000, log_every=10, save_every=1, continue_epoch=0, aloss=False, aloss_scalar=None):
     batch_iterator = iter(dataloader_train)
     total_examples_seen = 0
     model.train()
@@ -346,6 +356,9 @@ def train_model(model, dataloader_train, dataloader_test, model_eval_fn, criteri
         # TRAINING
         epoch_loss = 0.0
         mb_idx = 0
+        if ep_idx != 0 : 
+            aloss_scalar *= aloss_scalar
+        print('aloss_scalar', aloss_scalar)
         while mb_idx  <   epoch_size:
             # get train data
             try:
@@ -366,8 +379,8 @@ def train_model(model, dataloader_train, dataloader_test, model_eval_fn, criteri
                 train_loss = criterion(scores, features['labels'].long().to('cuda'))
             else:
                 raise NotImplementedError()
-            if args.l1:
-                l1_loss = (out_1['l1_queries'] + ((out_1['l1_docs'] +  out_2['l1_docs']) / 2) ) * 0.0001
+            if aloss:
+                l1_loss = (out_1['l1_queries'] + ((out_1['l1_docs'] +  out_2['l1_docs']) / 2) ) * aloss_scalar
                 l0_loss = (( out_1['l0_docs'] + out_2['l0_docs']) /2 )
                 unused_dims = (( out_1['unused_dims'] + out_2['unused_dims']) /2 )
             else:
@@ -396,7 +409,7 @@ def train_model(model, dataloader_train, dataloader_test, model_eval_fn, criteri
 
 
 if args.train:
-    train_model(model, dataloader_train, dataloader_test, model_eval_fn, criterion, optimizer, model_dir, encoding=encoding, num_epochs=args.num_epochs, continue_epoch=args.continue_epoch)
+    train_model(model, dataloader_train, dataloader_test, model_eval_fn, criterion, optimizer, model_dir, encoding=encoding, num_epochs=args.num_epochs, continue_epoch=args.continue_epoch, aloss_scalar=args.aloss_scalar, aloss=args.aloss)
 if args.encode:
     encode(model, tokenizer, args.collection, model_eval_fn, dataloader_encode, model_dir, encode_query=args.encode_query)
 else:

@@ -11,7 +11,7 @@ class DataReader(torch.utils.data.IterableDataset):
                 
 
                 
-    def __init__(self, tokenizer, data_file, num_docs, multi_pass, id2q, id2d, MB_SIZE, qrel_columns={'doc': 0, 'query': 2, 'score': 4}, continue_line=None, encoding='cross', prepend_type=False, keep_q=False, drop_q=False, preserve_q=False, shuffle=False, sort=False, has_label_scores=False, max_q_len=None, max_inp_len=512, tf_embeds=False, sliding_window=False, rand_length=False):
+    def __init__(self, tokenizer, data_file, num_docs, multi_pass, id2q, id2d, MB_SIZE, qrel_columns={'doc': 0, 'query': 2, 'score': 4}, continue_line=None, encoding='cross', prepend_type=False, keep_q=False, drop_q=False, preserve_q=False, shuffle=False, sort=False, has_label_scores=False, max_q_len=None, max_inp_len=512, tf_embeds=False, sliding_window=False, rand_length=False, rand_passage=False):
             print(data_file)
             self.num_docs = num_docs
             self.doc_col = 2 if self.num_docs <= 1 else 1
@@ -41,6 +41,7 @@ class DataReader(torch.utils.data.IterableDataset):
             self.tf_embeds = tf_embeds
             self.has_label_scores = has_label_scores
             self.sliding_window = sliding_window
+            self.random_passage = rand_passage
             self.max_q_len = max_q_len
             self.max_inp_len = max_inp_len
             self.basic_tokenizer = BasicTokenizer()
@@ -78,6 +79,7 @@ class DataReader(torch.utils.data.IterableDataset):
                             self.max_q_len = 16
                         else:
                             self.max_q_len = None
+                    doc_ids = list()
                     while len(batch_queries) < self.MB_SIZE:
                         row = self.reader.readline()
                         if row == '':
@@ -100,7 +102,9 @@ class DataReader(torch.utils.data.IterableDataset):
                         #    continue
                         q = self.id2q[cols[0]]
                         # get doc_ids       
-                        ds_ids = [  cols[self.doc_col + i].strip() for i in range(self.num_docs)] 
+                        ds_ids = [  cols[self.doc_col + i].strip() for i in range(self.num_docs)]
+
+                        doc_ids.append(ds_ids[-1])
                         # get doc content
                         ds = [self.id2d[id_] for id_ in ds_ids]
                         # if any of the docs is None skip triplet   
@@ -126,19 +130,34 @@ class DataReader(torch.utils.data.IterableDataset):
                             features['labels_1'].append(float(cols[3]))
                             features['labels_2'].append(float(cols[4]))
                         
-                        if self.sliding_window:  
-                                d_tokenized = self.basic_tokenizer.tokenize(ds[-1])
-                                d_tokenized = d_tokenized
-                                len_chunk = 512
-                                stride = 256
+                        if self.sliding_window or self.random_passage:  
+                            if self.num_docs != 1:
+                                raise NotImplementedError()
 
-                                chunks = [d_tokenized[i:i+len_chunk] for i in range(0, len(d_tokenized), len_chunk-stride)]
+                            d_tokenized = self.basic_tokenizer.tokenize(ds[-1])
+                            d_tokenized = d_tokenized
+                            len_chunk = 512
+                            stride = 256
+                            chunks = [d_tokenized[i:i+len_chunk] for i in range(0, len(d_tokenized), len_chunk-stride)]
+                    
+                            if self.sliding_window:
                                 if len(chunks) > 30:
                                     chunks = [chunks[0]] + [chunks[i] for i in random.sample(range(1, len(chunks)-1), 28)] + [chunks[-1]]
                                 for chunk in chunks:
                                     batch_docs.append([' '.join(chunk)])
                                     batch_queries.append(q)
                                     features['meta'].append([cols[self.qrel_columns['doc']], cols[self.qrel_columns['query']]])
+                            elif self.random_passage:
+                                features['meta'].append([cols[self.qrel_columns['doc']], cols[self.qrel_columns['query']]])
+                                batch_queries.append(q)
+
+                                if len(chunks) == 1:
+                                    rand_passage = chunks[0]
+                                else:
+                                    rand_passage = chunks[random.randint(0, len(chunks)-1)]
+
+                                batch_docs.append([' '.join(rand_passage)])
+
                         else:
                             if self.num_docs == 1:
                                 features['meta'].append([cols[self.qrel_columns['doc']], cols[self.qrel_columns['query']]])
@@ -150,9 +169,9 @@ class DataReader(torch.utils.data.IterableDataset):
                         features['encoded_queries'] = batch_queries 
                         features['encoded_docs'] = batch_docs
                         if not first_batch:
-                            idxs = random.sample(range(len(ds_ids)), 1)
+                            idxs = random.sample(range(len(doc_ids)),min(3, len(doc_ids)))
                             for idx in idxs:
-                                print(ds_ids[idx], self.tokenizer.decode(features['encoded_docs'][0]['input_ids'][idx]))
+                                print(doc_ids[idx], self.tokenizer.decode(features['encoded_docs'][0]['input_ids'][idx]))
                             first_batch=True
                         if self.sort:
                             raise NotImplementedError()
@@ -164,10 +183,10 @@ class DataReader(torch.utils.data.IterableDataset):
                         if self.sort:
                             features['encoded_input'] = [ self.sort_fn(el) for  el in  features['encoded_input']]
                         if not first_batch:
-                            #dids = [ el[1] for el in features['meta']]
-                            idxs = random.sample(range(len(ds_ids)), 1)
+                            #dids = [ el[1] for el in features['meta'3]
+                            idxs = random.sample(range(len(doc_ids)), min(len(doc_ids), 3))
                             for idx in idxs:
-                                print(ds_ids[idx], self.tokenizer.decode(features['encoded_input'][-1]['input_ids'][idx]))
+                                print(doc_ids[idx], self.tokenizer.decode(features['encoded_input'][-1]['input_ids'][idx]))
                             first_batch=True
                         
                         
@@ -290,8 +309,98 @@ class DataReader(torch.utils.data.IterableDataset):
                     tf_embed[i, j] = tf_norm
         return tf_embed
 
+    def get_inputs(self, tokenizer, query_text, sents, masked_lm=False, max_seq_len=2048, max_sent_num=256, window_size=128):
+
+        # Query tokens.
+        # Query tokens.
+        input_ids = [0] # Global attention token.
+        input_ids.extend(tokenizer.encode(query_text))
+        QL = len(input_ids)
+
+        # Sentence tokens.
+        # input_ids.append(0) # Global attention token.
+        sid = 0
+        sent_locs = []
+        sent_mask = []
+        while sid < max_sent_num and len(input_ids) < max_seq_len:
+            sent_locs.append(len(input_ids))
+            sent_mask.append([1.0])
+            # Add the global attention token and sent tokens.
+            input_ids.append(0)
+            input_ids.extend(tokenizer.encode(sents[sid]))
+            sid += 1
+            if sid == len(sents): break
+        last_pos = len(input_ids)
+        input_ids.append(2)
+        
+        # Padding handling.
+        L = len(input_ids)
+        num_sent = len(sent_locs)
+        if self.batch_size > 1:
+            if num_sent < max_sent_num:
+                sent_mask.extend(
+                        [[0.] for i in range(max_sent_num - num_sent)])
+                sent_locs.extend([0] * (max_sent_num - num_sent))
+            if L < self.max_seq_len:
+                input_ids.extend([1] * (max_seq_len - 1 - L))
+                input_ids.append(2)
+
+        if L > max_seq_len:
+            input_ids = input_ids[:max_seq_len]
+            L = max_seq_len
+
+        if len(input_ids) < 16:
+            input_ids.extend([1] * (16 - L))
 
 
+        ## Fill the attention masks.
+        # Anchor BOS indices.
+        bos_idx = [i for i, x in enumerate(input_ids) if x == 0]
+        # Fill in local attention first.
+        tok_mask = np.zeros([len(input_ids)], dtype=np.long)
+        tok_mask[range(L)] = 1
+
+        # Adjust global attention by the pattern.
+        # Longformer-QA
+        if self.attn_pattern == 1:
+            tok_mask[0] = 2
+            tok_mask[sent_locs[0]] = 2
+            self.attn_cnt += 2
+
+
+        # QDS-Transformer
+        if self.attn_pattern == 2:
+            tok_mask[range(QL)] = 2
+            tok_mask[bos_idx] = 2
+            self.attn_cnt += QL + len(bos_idx)
+            
+
+        # QDS-Transformer (Q)
+        if self.attn_pattern == 3:
+            tok_mask[range(QL)] = 2
+            tok_mask[sent_locs[0]] = 2
+            self.attn_cnt += QL + 1
+
+        # QDS-Transformer (S)
+        if self.attn_pattern == 4:
+            tok_mask[0] = 2
+            tok_mask[bos_idx] = 2
+            self.attn_cnt += 1 + len(bos_idx)
+        
+        self.attn_cnt += window_size * 2
+        self.attn_total += L
+
+        return input_ids, tok_mask, sent_locs, sent_mask
+
+
+    def to_tensor(self, batch):
+        return {
+                'input_ids': torch.tensor(batch['input_ids'], dtype=torch.long),
+                'tok_mask': torch.tensor(batch['tok_mask'], dtype=torch.float),
+                'sent_locs': torch.tensor(
+                    batch['sent_locs'], dtype=torch.long),
+                'sent_mask': torch.tensor(
+                    batch['sent_mask'], dtype=torch.float)}
 
 
             
