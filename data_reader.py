@@ -92,7 +92,7 @@ class DataReader(torch.utils.data.IterableDataset):
                                         self.reader.seek(0)
                                         print('Ignored Docs:', self.ignored_docs)
                                         self.done = True
-                                        break
+                                        return
                         cols = row.split()
                         q_id = cols[0]
                         #index = self.data_file.split('/')[-1].split('.')[1]

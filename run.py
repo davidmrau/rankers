@@ -118,6 +118,11 @@ elif args.dataset == '2021':
     QRELS_TEST = "data/msmarco/2021.qrels.pass.final.txt"
     ID2Q_TEST = "data/msmarco_2/2021_queries.tsv"
     ID2DOC_train = 'data/msmarco_2/passages_provided_top_100.tsv'
+elif args.dataset == 'clueweb':
+    QRELS_TEST = "data/clue/qrels.web.1-200.txt"
+    ID2DOC_train = "data/clue/clueweb09b_docs_cleaned_docs_in_run_spam_filtered_100"
+    ID2Q_TEST = "data/clue/topics.web.1-200.txt"
+    DATA_FILE_TEST = "data/clue/topics.web.1-200.xml.run.cw09b.bm25.top-100_stemmed_remove_stop_spam_filtered_self_extracted"
 
 elif args.dataset == '2022_docs':
     QRELS_TEST = "data/msmarco_2/2022.qrels.docs.inferred.txt"
@@ -129,7 +134,7 @@ elif args.dataset == '2021_docs':
     QRELS_TEST = "data/msmarco_docs/2021.qrels.docs.final.txt"
     ID2Q_TEST = "data/msmarco_docs/2021_queries.tsv"
     DATA_FILE_TEST = "data/msmarco_docs/2021_document_top100_judged.txt"
-    ID2DOC_test = 'data/msmarco_docs/msmarco_v2_2021_judged.tsv'
+    ID2DOC_train = 'data/msmarco_docs/msmarco_v2_2021_judged.tsv'
 
 elif args.dataset == '2019':
     QRELS_TEST = "data/msmarco/2019qrels-pass.txt"
