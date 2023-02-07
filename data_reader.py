@@ -54,8 +54,18 @@ class DataReader(torch.utils.data.IterableDataset):
                                     break
             self.reader.seek(0)
             self.qrel_columns = qrel_columns
-    
-            
+    def new_batch(self):
+        features = {}
+        if not self.has_label_scores:
+            features['labels'] = torch.ones(self.MB_SIZE, dtype=torch.float)
+        else:
+            features['labels_1'] = list()
+            features['labels_2'] = list()
+        features['meta'] = list()
+        features['encoded_input'] = list()
+        features['tf_embeds'] = list()
+        batch_queries, batch_docs = list(), list(), list()
+        return features, batch_queries, batch_docs
                 
 
     def __iter__(self):
@@ -63,23 +73,13 @@ class DataReader(torch.utils.data.IterableDataset):
             self.done = False
             first_batch = False
             while True:
-                    features = {}
-                    if not self.has_label_scores:
-                        features['labels'] = torch.ones(self.MB_SIZE, dtype=torch.float)
-                    else:
-                        features['labels_1'] = list()
-                        features['labels_2'] = list()
-                    features['meta'] = list()
-                    features['encoded_input'] = list()
-                    features['tf_embeds'] = list()
-                    batch_queries, batch_docs, batch_q_lengths, batch_d_lengths = list(), list(), list(), list()
+                    features, batch_queries, batch_docs = self.new_batch()
                     if self.rand_length:
                         self.max_inp_len = random.choice([32, 64, 128, 256, 512]) 
                         if self.max_inp_len == 32 or self.max_inp_len == 64:
                             self.max_q_len = 16
                         else:
                             self.max_q_len = None
-                    doc_ids = list()
                     while len(batch_queries) < self.MB_SIZE:
                         row = self.reader.readline()
                         if row == '':
@@ -104,7 +104,6 @@ class DataReader(torch.utils.data.IterableDataset):
                         # get doc_ids       
                         ds_ids = [  cols[self.doc_col + i].strip() for i in range(self.num_docs)]
 
-                        doc_ids.append(ds_ids[-1])
                         # get doc content
                         ds = [self.id2d[id_] for id_ in ds_ids]
                         # if any of the docs is None skip triplet   
@@ -144,9 +143,12 @@ class DataReader(torch.utils.data.IterableDataset):
                                 if len(chunks) > 30:
                                     chunks = [chunks[0]] + [chunks[i] for i in random.sample(range(1, len(chunks)-1), 28)] + [chunks[-1]]
                                 for chunk in chunks:
+                                    if len(batch_docs) >= self.MB_SIZE:
+                                        features, batch_queries, batch_docs = self.new_batch() 
                                     batch_docs.append([' '.join(chunk)])
                                     batch_queries.append(q)
                                     features['meta'].append([cols[self.qrel_columns['doc']], cols[self.qrel_columns['query']]])
+
                             elif self.random_passage:
                                 features['meta'].append([cols[self.qrel_columns['doc']], cols[self.qrel_columns['query']]])
                                 batch_queries.append(q)
@@ -163,6 +165,7 @@ class DataReader(torch.utils.data.IterableDataset):
                                 features['meta'].append([cols[self.qrel_columns['doc']], cols[self.qrel_columns['query']]])
                             batch_queries.append(q)
                             batch_docs.append(ds)
+                    doc_ids = [el[0] for el in features['meta']]
                     if self.encoding == 'bi':
                         batch_queries = self.tokenizer(batch_queries, padding=True, return_tensors="pt", truncation=True)
                         batch_docs = [self.tokenizer([bd[i] for bd in batch_docs], padding=True, return_tensors="pt", truncation=True, max_length=self.max_inp_len) for i in range(self.num_docs)]
