@@ -64,14 +64,14 @@ class DataReader(torch.utils.data.IterableDataset):
         features['meta'] = list()
         features['encoded_input'] = list()
         features['tf_embeds'] = list()
-        batch_queries, batch_docs = list(), list(), list()
+        batch_queries, batch_docs = list(), list()
         return features, batch_queries, batch_docs
                 
 
     def __iter__(self):
             self.ignored_docs = 0
             self.done = False
-            first_batch = False
+            self.first_batch = False
             while True:
                     features, batch_queries, batch_docs = self.new_batch()
                     if self.rand_length:
@@ -144,6 +144,7 @@ class DataReader(torch.utils.data.IterableDataset):
                                     chunks = [chunks[0]] + [chunks[i] for i in random.sample(range(1, len(chunks)-1), 28)] + [chunks[-1]]
                                 for chunk in chunks:
                                     if len(batch_docs) >= self.MB_SIZE:
+                                        yield self.prepare_input(features, batch_queries, batch_docs)
                                         features, batch_queries, batch_docs = self.new_batch() 
                                     batch_docs.append([' '.join(chunk)])
                                     batch_queries.append(q)
@@ -165,45 +166,44 @@ class DataReader(torch.utils.data.IterableDataset):
                                 features['meta'].append([cols[self.qrel_columns['doc']], cols[self.qrel_columns['query']]])
                             batch_queries.append(q)
                             batch_docs.append(ds)
-                    doc_ids = [el[0] for el in features['meta']]
-                    if self.encoding == 'bi':
-                        batch_queries = self.tokenizer(batch_queries, padding=True, return_tensors="pt", truncation=True)
-                        batch_docs = [self.tokenizer([bd[i] for bd in batch_docs], padding=True, return_tensors="pt", truncation=True, max_length=self.max_inp_len) for i in range(self.num_docs)]
-                        features['encoded_queries'] = batch_queries 
-                        features['encoded_docs'] = batch_docs
-                        if not first_batch:
-                            idxs = random.sample(range(len(doc_ids)),min(3, len(doc_ids)))
-                            for idx in idxs:
-                                print(doc_ids[idx], self.tokenizer.decode(features['encoded_docs'][0]['input_ids'][idx]))
-                            first_batch=True
-                        if self.sort:
-                            raise NotImplementedError()
-
-                    elif self.encoding == 'cross':
-                        if self.max_q_len != None:
-                            batch_queries = self.truncate_queries(batch_queries, self.max_q_len)
-                        features['encoded_input'] = [self.tokenizer(batch_queries, [bd[i] for bd in batch_docs], padding=True, truncation='only_second', return_tensors='pt', return_token_type_ids=True, max_length=self.max_inp_len)  for i in range(self.num_docs)]
-                        if self.sort:
-                            features['encoded_input'] = [ self.sort_fn(el) for  el in  features['encoded_input']]
-                        if not first_batch:
-                            #dids = [ el[1] for el in features['meta'3]
-                            idxs = random.sample(range(len(doc_ids)), min(len(doc_ids), 3))
-                            for idx in idxs:
-                                print(doc_ids[idx], self.tokenizer.decode(features['encoded_input'][-1]['input_ids'][idx]))
-                            first_batch=True
-                        
-                        
-                    #elif self.encoding == 'cross_fairseq':
-                     #   batch = [collate_tokens([self.tokenizer(q_, d_) for q_, d_ in zip(batch_queries, [bd[i] for bd in batch_docs])], pad_idx=1) for i in range(self.num_docs) ]
-                      #  features['encoded_input'] = batch
-                    if self.tf_embeds:
-                        features['tf_embeds'] = [self.get_tf_embeds(inp['input_ids']) for inp in features['encoded_input']]
-                    yield features
-
-                    if self.done:
-                        self.done = False
-                        return
                     
+                    yield self.prepare_input(features, batch_queries, batch_docs)
+
+    def prepare_input(self, features, batch_queries, batch_docs): 
+        doc_ids = [el[0] for el in features['meta']]
+        if self.encoding == 'bi':
+            batch_queries = self.tokenizer(batch_queries, padding=True, return_tensors="pt", truncation=True)
+            batch_docs = [self.tokenizer([bd[i] for bd in batch_docs], padding=True, return_tensors="pt", truncation=True, max_length=self.max_inp_len) for i in range(self.num_docs)]
+            features['encoded_queries'] = batch_queries 
+            features['encoded_docs'] = batch_docs
+            if not self.first_batch:
+                idxs = random.sample(range(len(doc_ids)),min(3, len(doc_ids)))
+                for idx in idxs:
+                    print(doc_ids[idx], self.tokenizer.decode(features['encoded_docs'][0]['input_ids'][idx]))
+                self.first_batch=True
+            if self.sort:
+                raise NotImplementedError()
+
+        elif self.encoding == 'cross':
+            if self.max_q_len != None:
+                batch_queries = self.truncate_queries(batch_queries, self.max_q_len)
+            features['encoded_input'] = [self.tokenizer(batch_queries, [bd[i] for bd in batch_docs], padding=True, truncation='only_second', return_tensors='pt', return_token_type_ids=True, max_length=self.max_inp_len)  for i in range(self.num_docs)]
+            if self.sort:
+                features['encoded_input'] = [ self.sort_fn(el) for  el in  features['encoded_input']]
+            if not self.first_batch:
+                #dids = [ el[1] for el in features['meta'3]
+                idxs = random.sample(range(len(doc_ids)), min(len(doc_ids), 3))
+                for idx in idxs:
+                    print(doc_ids[idx], self.tokenizer.decode(features['encoded_input'][-1]['input_ids'][idx]))
+                self.first_batch=True
+            
+            
+        #elif self.encoding == 'cross_fairseq':
+         #   batch = [collate_tokens([self.tokenizer(q_, d_) for q_, d_ in zip(batch_queries, [bd[i] for bd in batch_docs])], pad_idx=1) for i in range(self.num_docs) ]
+          #  features['encoded_input'] = batch
+        if self.tf_embeds:
+            features['tf_embeds'] = [self.get_tf_embeds(inp['input_ids']) for inp in features['encoded_input']]
+        return features 
     def collate_fn(self, batch):
         return batch
 
