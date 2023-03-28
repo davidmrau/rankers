@@ -162,8 +162,8 @@ class DataReader(torch.utils.data.IterableDataset):
                                 batch_docs.append([' '.join(rand_passage)])
 
                         else:
-                            if self.num_docs == 1:
-                                features['meta'].append([cols[self.qrel_columns['doc']], cols[self.qrel_columns['query']]])
+                            #if self.num_docs == 1:
+                            features['meta'].append([cols[self.qrel_columns['doc']], cols[self.qrel_columns['query']]])
                             batch_queries.append(q)
                             batch_docs.append(ds)
                     

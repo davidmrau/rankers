@@ -9,9 +9,10 @@ module load PyTorch/1.12.0-foss-2022a-CUDA-11.7.0
 export PYTHONIOENCODING='utf-8'
 cd ..
 nvidia-smi
+
 FILE_NAME=$1
 export FILE_NAME
-
+sleep 5 
 source slurm/${1}
 
 

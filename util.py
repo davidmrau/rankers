@@ -1,6 +1,7 @@
 
 from bert_cat import BERT_Cat
 from splade import Splade, SpladeConfig
+from sparse_bert import SparseBert, SparseBertConfig
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModel, AutoModelForSeq2SeqLM, T5Tokenizer, AutoModelForMaskedLM, RobertaTokenizer, BertTokenizer, BertForSequenceClassification, BertConfig, AutoConfig
 from transformers import LongformerTokenizer, LongformerForSequenceClassification
 from fairseq.models.roberta import RobertaModel
@@ -82,8 +83,10 @@ def get_model(model_name, checkpoint=None, **kwargs):
 
 
     elif 'longformer' == model_name:
-        tokenizer = LongformerTokenizer.from_pretrained("jpwahle/longformer-base-plagiarism-detection")
-        model = LongformerForSequenceClassification.from_pretrained("jpwahle/longformer-base-plagiarism-detection")
+        #tokenizer = LongformerTokenizer.from_pretrained("jpwahle/longformer-base-plagiarism-detection")
+        #model = LongformerForSequenceClassification.from_pretrained("jpwahle/longformer-base-plagiarism-detection")
+        tokenizer = LongformerTokenizer.from_pretrained('allenai/longformer-base-4096')
+        model = LongformerForSequenceClassification.from_pretrained('allenai/longformer-base-4096')
         encoding = 'cross'        
         def get_scores(model, features, index, save_hidden_states=False):
             encoded_input = features['encoded_input'][index]
@@ -265,6 +268,18 @@ def get_model(model_name, checkpoint=None, **kwargs):
             return_dict['scores'] = scores
             return return_dict
 
+    elif 'minilm6' == model_name:
+        model_name = 'cross-encoder/ms-marco-MiniLM-L-6-v2'
+        tokenizer = AutoTokenizer.from_pretrained(model_name, truncation_side=kwargs['truncation_side'])
+        model = AutoModelForSequenceClassification.from_pretrained(model_name)
+        encoding = 'cross'        
+        def get_scores(model, features, index, save_hidden_states=False):
+            encoded_input = features['encoded_input'][index]
+            out_raw = model(**encoded_input.to('cuda'))
+            scores = out_raw.logits[:, 0]
+            return_dict = {}
+            return_dict['scores'] = scores
+            return return_dict
 
     elif 'minilm12' == model_name:
         model_name = 'cross-encoder/ms-marco-MiniLM-L-12-v2'
@@ -355,7 +370,59 @@ def get_model(model_name, checkpoint=None, **kwargs):
         encoding = 'bi'
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         reverse_voc = {v: k for k, v in tokenizer.vocab.items()}
-        config = SpladeConfig()
+       # config = SpladeConfig()
+        #model = Splade(config)
+        config = SparseBertConfig(sparse_dim=kwargs['sparse_dim'])
+        model = SparseBert(config)
+
+        def get_weight_dicts(batch_aggregated_logits):
+            to_return = []
+            for aggregated_logits in batch_aggregated_logits:
+                col = np.nonzero(aggregated_logits)[0]
+                weights = aggregated_logits[col]
+                d = {reverse_voc[k]: float(v) for k, v in zip(list(col), list(weights))}
+                to_return.append(d)
+            return to_return
+
+
+        if kwargs['encoding']:
+            def get_scores(model, features, index, save_hidden_states=False):
+                pids, encoded_docs = features
+                logits = model(**encoded_docs.to('cuda')).cpu().detach().numpy()
+                weight_dicts = get_weight_dicts(logits)
+                return pids, weight_dicts
+        else:
+            def get_scores(model, features, index, save_hidden_states=False):
+                return_dict = {}
+                encoded_queries = features['encoded_queries']
+                encoded_docs = features['encoded_docs'][index]
+                emb_queries = model(**encoded_queries.to('cuda'))
+                emb_docs = model(**encoded_docs.to('cuda'))
+                def l1(batch_rep):
+                    return torch.sum(torch.abs(batch_rep), dim=-1).mean()
+
+                def flops(batch_rep):
+                    return torch.sum(torch.mean(torch.abs(batch_rep), dim=0) ** 2)
+                def l0(batch_rep):
+                    return torch.count_nonzero(batch_rep, dim=-1).float().mean()
+
+                def used_dims(batch_rep):
+                    return torch.count_nonzero(batch_rep, dim=0).float().mean()
+                    
+                return_dict['l1_queries'] = flops(emb_queries)
+                return_dict['l1_docs'] = flops(emb_docs)
+                scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
+                return_dict['scores'] = scores
+                return_dict['l0_docs'] = l0(emb_docs)
+                return_dict['used_dims'] = used_dims(emb_docs)
+                return return_dict
+    elif 'splade' == model_name:
+        encoding = 'bi'
+        tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+        reverse_voc = {v: k for k, v in tokenizer.vocab.items()}
+        model_name = 'splade_max'
+        #model = Splade.from_pretrained(model_name)
+        config = SpladeConfig(base_model='naver/splade-cocondenser-ensembledistil')
         model = Splade(config)
 
         def get_weight_dicts(batch_aggregated_logits):
@@ -389,7 +456,7 @@ def get_model(model_name, checkpoint=None, **kwargs):
                 def l0(batch_rep):
                     return torch.count_nonzero(batch_rep, dim=-1).float().mean()
 
-                def unused_dims(batch_rep):
+                def used_dims(batch_rep):
                     return torch.count_nonzero(batch_rep, dim=0).float().mean()
                     
                 return_dict['l1_queries'] = flops(emb_queries)
@@ -397,42 +464,8 @@ def get_model(model_name, checkpoint=None, **kwargs):
                 scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
                 return_dict['scores'] = scores
                 return_dict['l0_docs'] = l0(emb_docs)
-                return_dict['unused_dims'] = unused_dims(emb_docs)
+                return_dict['used_dims'] = used_dims(emb_docs)
                 return return_dict
-    elif 'splade' == model_name:
-        model_name = 'splade_max'
-        encoding = 'bi'
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        reverse_voc = {v: k for k, v in tokenizer.vocab.items()}
-        model = Splade(model_name)
-
-        def get_weight_dicts(batch_aggregated_logits):
-            to_return = []
-            for aggregated_logits in batch_aggregated_logits:
-                col = np.nonzero(aggregated_logits)[0]
-                weights = aggregated_logits[col]
-                d = {reverse_voc[k]: float(v) for k, v in zip(list(col), list(weights))}
-                to_return.append(d)
-            return to_return
-
-
-        if kwargs['encoding']:
-            def get_scores(model, features, index, save_hidden_states=False):
-                pids, encoded_docs = features
-                logits = model(**encoded_docs.to('cuda')).cpu().detach().numpy()
-                weight_dicts = get_weight_dicts(logits)
-                return pids, weight_dicts
-        else:
-            def get_scores(model, features, index, save_hidden_states=False):
-                encoded_queries = features['encoded_queries']
-                encoded_docs = features['encoded_docs'][index]
-                emb_queries = model(**encoded_queries.to('cuda'))
-                emb_docs = model(**encoded_docs.to('cuda'))
-                scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
-                return_dict = {}
-                return_dict['scores'] = scores
-                return return_dict
-
 
     elif 'monolarge' == model_name:
         model_name = 'castorini/monobert-large-msmarco-finetune-only' 
@@ -500,7 +533,7 @@ def get_model(model_name, checkpoint=None, **kwargs):
         encoding = 'bi'
 
 
-        def get_scores(model, features, index):
+        def get_scores(model, features, index, save_hidden_states=False):
             encoded_queries = features['encoded_queries']
             encoded_docs = features['encoded_docs'][index]
 
@@ -545,6 +578,34 @@ def get_model(model_name, checkpoint=None, **kwargs):
 
     if checkpoint != None:
         print('loading from checkpoint', checkpoint)
-        model = AutoModelForSequenceClassification.from_pretrained(checkpoint)
-        #model = AutoModel.from_pretrained(checkpoint)
+        #model = AutoModelForSequenceClassification.from_pretrained(checkpoint)
+        model = Splade.from_pretrained(checkpoint)
     return model, tokenizer, get_scores, encoding, prepend_type
+
+
+
+
+
+class RegWeightScheduler:
+    """same scheduling as in: Minimizing FLOPs to Learn Efficient Sparse Representations
+    https://arxiv.org/abs/2004.05665
+    """
+
+    def __init__(self, lambda_, T):
+        self.lambda_ = lambda_
+        self.T = T
+        self.t = 0
+        self.lambda_t = 0
+
+    def step(self):
+        """quadratic increase until time T
+        """
+        if self.t >= self.T:
+            pass
+        else:
+            self.t += 1
+            self.lambda_t = self.lambda_ * (self.t / self.T) ** 2
+        return self.lambda_t
+
+    def get_lambda(self):
+        return self.lambda_t
