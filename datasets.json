@@ -23,14 +23,14 @@
 
     "test": {
         
-        "2019_pass" : 
+        "2019_pass" : {
             "qrels": "data/msmarco/2019qrels-pass.txt",
             "trec_run": "data/msmarco/msmarco-passagetest2019-top1000_43_ranking_results_style.t",
             "queries": "data/msmarco/msmarco-test2019-queries_43.tsv",
             "docs": "data/msmarco/collection.tsv"
 
         },
-        "2019_doc" : 
+        "2019_doc" : {
             "qrels": "data/msmarco_docs/2020qrels-docs.txt",
             "trec_run": "data/msmarco_docs/msmarco-doctest2020-top100_judged",
             "queries": "data/msmarco_docs/msmarco-test2020-queries.tsv",
@@ -52,56 +52,56 @@
             "docs": "data/msmarco_docs/msmarco-docs.tsv_test_2020.tsv"
 
         },
-        "2020_doc_plm" : 
+        "2020_doc_plm" : {
             "qrels": "data/msmarco_docs/2020qrels-docs.txt",
             "trec_run": "data/msmarco_docs/msmarco-doctest2020-top100_judged",
             "queries": "data/msmarco_docs/msmarco-test2020-queries.tsv",
             "docs": "data/msmarco_docs/msmarco-docs.tsv_test_2020.tsv_plm_512"
 
         },
-        "2021_pass" : 
+        "2021_pass" : {
             "qrels": "data/msmarco/2021.qrels.pass.final.txt",
             "trec_run": "",
             "queries": "data/msmarco_2/2021_queries.tsv",
             "docs": "data/msmarco_2/passages_provided_top_100.tsv"
 
         },
-        "2021_doc" : 
+        "2021_doc" : {
             "qrels": "data/msmarco_docs/2021.qrels.docs.final.txt",
             "trec_run": "data/msmarco_docs/2021_document_top100_judged.txt",
             "queries": "data/msmarco_docs/2021_queries.tsv",
             "docs": "data/msmarco_docs/msmarco_v2_2021_judged.tsv"
 
         },
-        "2022_doc" : 
+        "2022_doc" : {
             "qrels": "data/msmarco_2/2022.qrels.docs.inferred.txt",
             "trec_run": "data/msmarco_2/2022_document_top100.txt",
             "queries": "data/msmarco_2/2022_queries.tsv",
             "docs": "data/msmarco_2/2022_docs_nist.tsv"
 
         },
-        "clueweb" : 
+        "clueweb" : {
             "qrels": "data/clue/qrels.web.1-200.txt",
             "trec_run": "data/clue/topics.web.1-200.xml.run.cw09b.bm25.top-100_stemmed_remove_stop_spam_filtered_self_extracted",
             "queries": "data/clue/topics.web.1-200.txt",
             "docs": "data/clue/clueweb09b_docs_cleaned_docs_in_run_spam_filtered_100"
 
         },
-        "robust" : 
+        "robust" : {
             "qrels": "data/robust_test/qrels.robust2004.txt",
             "trec_run": "data/robust_test/run.robust04.bm25.no_stem.trec_top_100",
             "queries": "data/robust_test/04.testset_num_query_lower",
             "docs": "data/robust/robust04_raw_docs.num_query"
 
         },
-        "robust_100_callan" : 
+        "robust_100_callan" : {
             "qrels": "data/distributed_ir/qrel.51-150",
             "trec_run": "data/distributed_ir/run.all_trec.bm25.topics.adhoc.51-200.txt",
             "queries": "data/distributed_ir/topics.adhoc.51-200.txt.tsv",
             "docs": "data/distributed_ir/trec_123.tsv"
 
         },
-        "robust_100_kmeans" : 
+        "robust_100_kmeans" : { 
             "qrels": "data/distributed_ir/qrels.adhoc.201-250.txt",
             "trec_run": "data/distributed_ir/run.all_trec.bm25.topics.desc.adhoc.201-250.disks23.txt",
             "queries": "data/distributed_ir/topics.adhoc.201-250.txt.desc.tsv",

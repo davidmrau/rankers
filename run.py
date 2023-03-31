@@ -39,17 +39,17 @@ parser.add_argument("--add_to_dir", type=str, default='', help='Will be appended
 parser.add_argument("--no_fp16", action='store_true', help='Disable half precision training.' )
 parser.add_argument("--mb_size_test", type=int, default=128, help='Test batch size.')
 parser.add_argument("--num_epochs", type=int, default=10, help='Number of training epochs.')
-parser.add_argument("--max_inp_len", type=int, default=512, 'Max. total input length.')
+parser.add_argument("--max_inp_len", type=int, default=512, help='Max. total input length.')
 parser.add_argument("--max_q_len", type=int, default=None, help='Max. Query length. ')
 parser.add_argument("--run", type=str, default=None)
 parser.add_argument("--mb_size_train", type=int, default=1024, help='Train batch size.')
-parser.add_argument("--single_gpu", action='store_true', 'Limit training to a single gpu.')
-parser.add_argument("--eval_metric", default='ndcg_cut_10', 'Evaluation Metric.')
-parser.add_argument("--learning_rate", type=float, default=0.00002, 'Learning rate for training.')
-parser.add_argument("--checkpoint", type=str, default=None, 'Folder of model checkpoint (will be loaded with huggingfaces .from_pretrained)')
+parser.add_argument("--single_gpu", action='store_true', help='Limit training to a single gpu.')
+parser.add_argument("--eval_metric", default='ndcg_cut_10', help='Evaluation Metric.')
+parser.add_argument("--learning_rate", type=float, default=0.00002, help='Learning rate for training.')
+parser.add_argument("--checkpoint", type=str, default=None, help='Folder of model checkpoint (will be loaded with huggingfaces .from_pretrained)')
 parser.add_argument("--truncation_side", type=str, default='right', help='Truncate from left or right', choices=['left', 'right'])
 parser.add_argument("--continue_line", type=int, default=0, help='Continue training in triples file from given line')
-parser.add_argument("--save_last_hidden", action='store_true', 'Saves last hiden state under MODELDIR/last_hidden.p')
+parser.add_argument("--save_last_hidden", action='store_true', help='Saves last hiden state under MODELDIR/last_hidden.p')
 
 parser.add_argument("--aloss_scalar", type=float, default=0.0001, help='Loss scalar for the auxiliary sparsity loss.')
 parser.add_argument("--aloss", action='store_true', help='Using auxilliary sparsity loss.')
@@ -84,7 +84,7 @@ model_dir = "/".join(args.model.split('/')[:-1])
 model, tokenizer, model_eval_fn, encoding, prepend_type = get_model(args.model, args.checkpoint, truncation_side=args.truncation_side, encoding=args.encode, sparse_dim=args.sparse_dim)
 
 
-dataset = json.loads(open('dataset.json').read())
+dataset = json.loads(open('datasets.json').read())
 
 
 # instantiate Data Reader
@@ -93,9 +93,9 @@ if args.dataset_train:
     model_dir += args.add_to_dir
 
 
-    docs_file = dataset['train'][args.datatset]['docs']
-    queries_file = dataset['train'][args.datatset]['queries']
-    triples = dataset['train'][args.datatset]['triples']
+    docs_file = dataset['train'][args.dataset_train]['docs']
+    queries_file = dataset['train'][args.dataset_train]['queries']
+    triples = dataset['train'][args.dataset_train]['triples']
 
     #load file
     queries = File(queries_file, encoded=False)
@@ -117,21 +117,21 @@ if args.dataset_test:
     model_dir += args.add_to_dir
     model_dir += '_test/'
 #if we are not encoding then we carrying out testing by default
-    docs_file = dataset['test'][args.datatset]['docs']
-    queries_file = dataset['test'][args.datatset]['queries']
-    trec_run = dataset['test'][args.datatset]['trec_run']
+    docs_file = dataset['test'][args.dataset_test]['docs']
+    queries_file = dataset['test'][args.dataset_test]['queries']
+    trec_run = dataset['test'][args.dataset_test]['trec_run']
     
     #load file
     queries = File(queries_file, encoded=False)
     # if training and testing docs are the same and they are loaded already don't load them again
-    if docs_file != dataset['train'][args.dataset]['docs'] and not args.dataset_train:
+    if docs_file != dataset['train'][args.dataset_train]['docs'] and not args.dataset_train:
         docs = File(docs_file, encoded=False)
 
     dataset_test = DataReader(tokenizer, trec_run, 1, False, queries, docs, args.mb_size_test, encoding=encoding, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, sliding_window=args.eval_strategy!='first_p' and args.eval_strategy != 'last_p', rand_passage=args.rand_passage)
     dataloader_test = DataLoader(dataset_test, batch_size=None, num_workers=0, pin_memory=False, collate_fn=dataset_test.collate_fn)
 
 # determine the name of the model directory
-model_dir = f'{args.exp_dir}/{args.dataset}_{args.model}'
+model_dir = f'{args.exp_dir}/train_{args.dataset_train}_test_{args.dataset_test}{args.model}'
 # print model directory
 print('model dir', model_dir)
 # create directory
