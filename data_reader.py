@@ -11,7 +11,7 @@ class DataReader(torch.utils.data.IterableDataset):
                 
 
                 
-    def __init__(self, tokenizer, data_file, num_docs, multi_pass, id2q, id2d, MB_SIZE, qrel_columns={'doc': 0, 'query': 2, 'score': 4}, continue_line=None, encoding='cross', prepend_type=False, keep_q=False, drop_q=False, preserve_q=False, shuffle=False, sort=False, has_label_scores=False, max_q_len=None, max_inp_len=512, tf_embeds=False, sliding_window=False, rand_length=False, rand_passage=False):
+    def __init__(self, tokenizer, model_type, data_file, num_docs, multi_pass, id2q, id2d, MB_SIZE, qrel_columns={'doc': 0, 'query': 2, 'score': 4},continue_line=None, prepend_type=False, keep_q=False, drop_q=False, preserve_q=False, shuffle=False, sort=False, has_label_scores=False, max_q_len=None, max_inp_len=512, tf_embeds=False, sliding_window=False, rand_length=False, rand_passage=False):
             print(data_file)
             self.num_docs = num_docs
             self.doc_col = 2 if self.num_docs <= 1 else 1
@@ -28,7 +28,7 @@ class DataReader(torch.utils.data.IterableDataset):
             self.multi_pass = multi_pass
             self.id2d = id2d
             self.id2q = id2q
-            self.encoding = encoding
+            self.model_type = model_type
             self.tokenizer = tokenizer
             self.prepend_type = prepend_type
             self.reader = open(data_file, mode='r', encoding="utf-8")
@@ -171,7 +171,7 @@ class DataReader(torch.utils.data.IterableDataset):
 
     def prepare_input(self, features, batch_queries, batch_docs): 
         doc_ids = [el[0] for el in features['meta']]
-        if self.encoding == 'bi':
+        if self.model_type == 'bi':
             batch_queries = self.tokenizer(batch_queries, padding=True, return_tensors="pt", truncation=True)
             batch_docs = [self.tokenizer([bd[i] for bd in batch_docs], padding=True, return_tensors="pt", truncation=True, max_length=self.max_inp_len) for i in range(self.num_docs)]
             features['encoded_queries'] = batch_queries 
@@ -184,7 +184,7 @@ class DataReader(torch.utils.data.IterableDataset):
             if self.sort:
                 raise NotImplementedError()
 
-        elif self.encoding == 'cross':
+        elif self.model_type == 'cross':
             if self.max_q_len != None:
                 batch_queries = self.truncate_queries(batch_queries, self.max_q_len)
             features['encoded_input'] = [self.tokenizer(batch_queries, [bd[i] for bd in batch_docs], padding=True, truncation='only_second', return_tensors='pt', return_token_type_ids=True, max_length=self.max_inp_len)  for i in range(self.num_docs)]
@@ -198,9 +198,6 @@ class DataReader(torch.utils.data.IterableDataset):
                 self.first_batch=True
             
             
-        #elif self.encoding == 'cross_fairseq':
-         #   batch = [collate_tokens([self.tokenizer(q_, d_) for q_, d_ in zip(batch_queries, [bd[i] for bd in batch_docs])], pad_idx=1) for i in range(self.num_docs) ]
-          #  features['encoded_input'] = batch
         if self.tf_embeds:
             features['tf_embeds'] = [self.get_tf_embeds(inp['input_ids']) for inp in features['encoded_input']]
         return features 

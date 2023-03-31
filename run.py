@@ -23,9 +23,11 @@ import torch.optim as optim
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 from transformers.optimization import AdamW, get_linear_schedule_with_warmup
-
+from models import *
 from util import get_model, MarginMSELoss, RegWeightScheduler
 from performance_monitor import PerformanceMonitor
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--model", type=str, required=True, help='Model name defined in model.py')
 parser.add_argument("--exp_dir", type=str, required=True, help='Base directory where files will be saved to.' )
@@ -81,15 +83,27 @@ model_dir = "/".join(args.model.split('/')[:-1])
 
 
 # instanitae model
-model, tokenizer, model_eval_fn, encoding, prepend_type = get_model(args.model, args.checkpoint, truncation_side=args.truncation_side, encoding=args.encode, sparse_dim=args.sparse_dim)
+print(globals())
+ranker = globals()[args.model](vars(args))
+
+#if checkpoint load from_pretrained
+if args.checkpoint:
+    ranker.model.from_pretrained(args.checkpoint)
 
 
+# model to gpu
+ranker.model = ranker.model.to('cuda')
+# use multiple gpus if available
+if torch.cuda.device_count() > 1 and not args.single_gpu:
+    ranker.model = torch.nn.DataParallel(ranker.model)
+
+# load dataset paths
 dataset = json.loads(open('datasets.json').read())
 
 
 # instantiate Data Reader
 if args.dataset_train:
-    model_dir += f'bz_{args.mb_size_train}_lr_{args.learning_rate}'
+    model_dir += f'bz_{args.mb_size_train}_lr_{args.learning_rate}_ep_{args.num_epochs}_max_inp_len_{args.max_inp_len}'
     model_dir += args.add_to_dir
 
 
@@ -101,7 +115,7 @@ if args.dataset_train:
     queries = File(queries_file, encoded=False)
     docs = File(docs_file, encoded=False)
 
-    dataset_train = DataReader(tokenizer, triples, 2, True, queries, docs, args.mb_size_train, encoding=encoding, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, has_label_scores=args.mse_loss, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, continue_line=args.continue_line)
+    dataset_train = DataReader(ranker.tokenizer, ranker.type, triples, 2, True, queries, docs, args.mb_size_train, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, has_label_scores=args.mse_loss, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, continue_line=args.continue_line)
     dataloader_train = DataLoader(dataset_train, batch_size=None, num_workers=1, pin_memory=False, collate_fn=dataset_train.collate_fn)
 
 
@@ -110,7 +124,7 @@ if args.encode:
     model_dir += args.add_to_dir
     model_dir += '_encode/'
     encode_file = args.encode
-    dataset = MSMARCO(encode_file, tokenizer, max_len=args.max_inp_len)
+    dataset = MSMARCO(encode_file, ranker.tokenizer, max_len=args.max_inp_len)
     dataloader_encode = DataLoader(dataset, batch_size=args.mb_size_test, num_workers=1, collate_fn=dataset.collate_fn)
 
 if args.dataset_test:
@@ -127,7 +141,7 @@ if args.dataset_test:
     if docs_file != dataset['train'][args.dataset_train]['docs'] and not args.dataset_train:
         docs = File(docs_file, encoded=False)
 
-    dataset_test = DataReader(tokenizer, trec_run, 1, False, queries, docs, args.mb_size_test, encoding=encoding, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, sliding_window=args.eval_strategy!='first_p' and args.eval_strategy != 'last_p', rand_passage=args.rand_passage)
+    dataset_test = DataReader(ranker.tokenizer, ranker.type, trec_run, 1, False, queries, docs, args.mb_size_test, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, sliding_window=args.eval_strategy!='first_p' and args.eval_strategy != 'last_p', rand_passage=args.rand_passage)
     dataloader_test = DataLoader(dataset_test, batch_size=None, num_workers=0, pin_memory=False, collate_fn=dataset_test.collate_fn)
 
 # determine the name of the model directory
@@ -142,19 +156,14 @@ with open(f'{model_dir}/args.json', 'wt') as f:
 # initialize summary writer
 writer = SummaryWriter(f'{model_dir}/log/')
 
-# model to gpu
-model = model.to('cuda')
-# use multiple gpus if available
-if torch.cuda.device_count() > 1 and not args.single_gpu:
-    model = torch.nn.DataParallel(model)
 
 # set position embeddings to zero if parameter is passed
 if args.no_pos_emb:
     #emb = getattr(model, args.model.split('.')[0]).embeddings.position_embeddings
-    if hasattr(model, 'bert'):
-        emb = model.bert.embeddings.position_embeddings
+    if hasattr(ranker.model, 'bert'):
+        emb = ranker.model.bert.embeddings.position_embeddings
     else:
-        emb = model.embeddings.position_embeddings
+        emb = ranker.model.embeddings.position_embeddings
 
     emb.weight.data = torch.zeros_like(emb.weight.data)
     emb.weight.requires_grad = False
@@ -163,7 +172,7 @@ if args.no_pos_emb:
 
 
 
-optimizer = AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=args.learning_rate, weight_decay=0.01)
+optimizer = AdamW(filter(lambda p: p.requires_grad, ranker.model.parameters()), lr=args.learning_rate, weight_decay=0.01)
 scheduler = get_linear_schedule_with_warmup(optimizer=optimizer, num_warmup_steps=6000, num_training_steps=150000)
 scaler = torch.cuda.amp.GradScaler(enabled=not args.no_fp16)
 
@@ -173,9 +182,9 @@ def print_message(s):
 
 
 # select losses according to model architecture
-if encoding == 'cross' or encoding == 'cross_fairseq':
+if ranker.type == 'cross':
     criterion = nn.CrossEntropyLoss()
-elif encoding == 'bi':
+elif ranker.type == 'bi':
     criterion = nn.MarginRankingLoss(margin=1)
     reg = RegWeightScheduler(args.aloss_scalar, 5000)
     #logsoftmax = torch.nn.LogSoftmax(dim=1)
@@ -185,16 +194,16 @@ if args.mse_loss:
 
 
 
-def encode(encode_file, model, tokenizer, model_eval_fn, dataloader, model_dir, eval_strategy='first_p'):
+def encode(ranker, encode_file, dataloader, model_dir, eval_strategy='first_p'):
 
     emb_file = encode_file + '.encoded.p'
-    model.eval() 
+    ranker.model.eval() 
     emb_dict = {} 
     with torch.no_grad():
         for num_i, features in tqdm(enumerate(dataloader)):
 
             with torch.inference_mode():
-                ids, embs = model_eval_fn(model, features, index=0)
+                ids, embs = ranker.get_scores(ranker.model, features, index=0)
                 for id_, emb_ in zip(ids, embs.detach().cpu().numpy()):
                     emb_dict[id_] = emb_
         pickle.dump(emb_dict, open(emb_file, 'wb'))
@@ -231,8 +240,8 @@ def encode(encode_file, model, tokenizer, model_eval_fn, dataloader, model_dir, 
 
 
 
-def eval_model(model, model_eval_fn, dataloader_test, model_dir,  max_rank='1000', eval_metric='ndcg_cut_10', suffix='', save_hidden_states=False, eval_strategy='first_p'):
-    model.eval()
+def eval_model(ranker, dataloader_test, model_dir,  max_rank='1000', eval_metric='ndcg_cut_10', suffix='', save_hidden_states=False, eval_strategy='first_p'):
+    ranker.model.eval()
     res_test = {}
     batch_latency = []
     perf_monitor = PerformanceMonitor.get()
@@ -240,7 +249,7 @@ def eval_model(model, model_eval_fn, dataloader_test, model_dir,  max_rank='1000
     for num_i, features in tqdm(enumerate(dataloader_test)):
         with torch.inference_mode():
             start_time = time.time()
-            out = model_eval_fn(model, features, index=0, save_hidden_states=save_hidden_states)
+            out = ranker.model.get_scores(features, index=0)
             timer = time.time()-start_time
             scores = out['scores']
 
@@ -290,10 +299,10 @@ def eval_model(model, model_eval_fn, dataloader_test, model_dir,  max_rank='1000
     return eval_val
 
 
-def train_model(model, dataloader_train, dataloader_test, model_eval_fn, criterion, optimizer,  model_dir, encoding='cross', num_epochs=40, epoch_size=1000, log_every=10, save_every=1, aloss=False, aloss_scalar=None, fp16=True):
+def train_model(ranker, dataloader_train, dataloader_test, criterion, optimizer,  model_dir, num_epochs=40, epoch_size=1000, log_every=10, save_every=1, aloss=False, aloss_scalar=None, fp16=True):
     batch_iterator = iter(dataloader_train)
     total_examples_seen = 0
-    model.train()
+    ranker.model.train()
     for ep_idx in range(num_epochs):
         print('epoch', ep_idx)
         # TRAINING
@@ -307,17 +316,17 @@ def train_model(model, dataloader_train, dataloader_test, model_eval_fn, criteri
                 batch_iterator = iter(dataloader_train)
                 continue
             with torch.cuda.amp.autocast(enabled=fp16):
-                out_1, out_2 = model_eval_fn(model, features, index=0), model_eval_fn(model, features, index=1)
+                out_1, out_2 = ranker.model.get_scores(features, index=0), ranker.model.get_scores(features, index=1)
                 scores_doc_1, scores_doc_2 = out_1['scores'], out_2['scores']
                 optimizer.zero_grad()
                 if args.mse_loss:
                     train_loss = criterion(scores_doc_1, scores_doc_2, torch.tensor(features['labels_1'], device='cuda'), torch.tensor(features['labels_2'], device='cuda'))
-                elif encoding == 'bi':
+                elif ranker.type == 'bi':
                     train_loss = criterion(scores_doc_1, scores_doc_2, features['labels'].to('cuda'))
                     #train_loss = logsoftmax(torch.cat([scores_doc_1.unsqueeze(1), scores_doc_2.unsqueeze(1)], dim=1))
                     #train_loss = torch.mean(-train_loss[0,:])
                     
-                elif 'cross' in encoding:
+                elif ranker.type == 'cross':
                     scores = torch.stack((scores_doc_2, scores_doc_1),1 )
                     train_loss = criterion(scores, features['labels'].long().to('cuda'))
                 else:
@@ -351,17 +360,17 @@ def train_model(model, dataloader_train, dataloader_test, model_eval_fn, criteri
 
         print_message('epoch:{}, av loss:{}'.format(ep_idx + 1, epoch_loss / (epoch_size) ))
 
-        eval_model(model, model_eval_fn, dataloader_test, model_dir, suffix=ep_idx)
+        eval_model(ranker, dataloader_test, model_dir, suffix=ep_idx)
 
         print('saving_model')
 
         if ep_idx % save_every == 0:
-            model.module.save_pretrained(f'{model_dir}/model_{ep_idx+1}')
+            ranker.model.module.save_pretrained(f'{model_dir}/model_{ep_idx+1}')
 
 
 if args.dataset_train:
-    train_model(model, dataloader_train, dataloader_test, model_eval_fn, criterion, optimizer, model_dir, encoding=encoding, num_epochs=args.num_epochs, aloss_scalar=args.aloss_scalar, aloss=args.aloss, fp16=not args.no_fp16)
+    train_model(ranker, dataloader_train, dataloader_test, criterion, optimizer, model_dir, num_epochs=args.num_epochs, aloss_scalar=args.aloss_scalar, aloss=args.aloss, fp16=not args.no_fp16)
 if args.encode:
-    encode(args.encode, model, tokenizer, model_eval_fn, dataloader_encode, model_dir)
+    encode(args.encode, ranker, dataloader_encode, model_dir)
 if args.dataset_test:
-    eval_model(model, model_eval_fn, dataloader_test, model_dir, save_hidden_states=args.save_last_hidden, eval_strategy=args.eval_strategy)
+    eval_model(ranker, dataloader_test, model_dir, save_hidden_states=args.save_last_hidden, eval_strategy=args.eval_strategy)
