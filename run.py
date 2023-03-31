@@ -27,194 +27,128 @@ from transformers.optimization import AdamW, get_linear_schedule_with_warmup
 from util import get_model, MarginMSELoss, RegWeightScheduler
 from performance_monitor import PerformanceMonitor
 parser = argparse.ArgumentParser()
-parser.add_argument("--add_to_dir", type=str, default='')
-parser.add_argument("--model", type=str, required=True )
-parser.add_argument("--out_folder", type=str, required=True )
-parser.add_argument("--dataset", type=str, required=True )
-parser.add_argument("--no_fp16", action='store_true' )
-parser.add_argument("--mb_size_test", type=int, default=128)
-parser.add_argument("--num_epochs", type=int, default=10)
-parser.add_argument("--max_inp_len", type=int, default=512)
-parser.add_argument("--max_q_len", type=int, default=None)
-parser.add_argument("--collection", type=str, default=None)
+parser.add_argument("--model", type=str, required=True, help='Model name defined in model.py')
+parser.add_argument("--exp_dir", type=str, required=True, help='Base directory where files will be saved to.' )
+parser.add_argument("--dataset_test", type=str, required=None, help='Test dataset name defined in dataset.json')
+parser.add_argument("--dataset_train", type=str, default=None, help='Train dataset name defined in dataset.json')
+parser.add_argument("--encode", type=str, default=None, help='Path to file to encode. Format "qid\tdid\n".')
+
+
+
+parser.add_argument("--add_to_dir", type=str, default='', help='Will be appended to the default model directory')
+parser.add_argument("--no_fp16", action='store_true', help='Disable half precision training.' )
+parser.add_argument("--mb_size_test", type=int, default=128, help='Test batch size.')
+parser.add_argument("--num_epochs", type=int, default=10, help='Number of training epochs.')
+parser.add_argument("--max_inp_len", type=int, default=512, 'Max. total input length.')
+parser.add_argument("--max_q_len", type=int, default=None, help='Max. Query length. ')
 parser.add_argument("--run", type=str, default=None)
-parser.add_argument("--mb_size_train", type=int, default=1024)
-parser.add_argument("--single_gpu", action='store_true')
-parser.add_argument("--eval_metric", default='ndcg_cut_10')
-parser.add_argument("--learning_rate", type=float, default=0.00002)
-parser.add_argument("--checkpoint", type=str, default=None)
-parser.add_argument("--truncation_side", type=str, default='right')
-parser.add_argument("--continue_line", type=int, default=0)
-parser.add_argument("--train", action='store_true')
-parser.add_argument("--encode", action='store_true')
-parser.add_argument("--encode_query", action='store_true')
-parser.add_argument("--save_last_hidden", action='store_true')
+parser.add_argument("--mb_size_train", type=int, default=1024, help='Train batch size.')
+parser.add_argument("--single_gpu", action='store_true', 'Limit training to a single gpu.')
+parser.add_argument("--eval_metric", default='ndcg_cut_10', 'Evaluation Metric.')
+parser.add_argument("--learning_rate", type=float, default=0.00002, 'Learning rate for training.')
+parser.add_argument("--checkpoint", type=str, default=None, 'Folder of model checkpoint (will be loaded with huggingfaces .from_pretrained)')
+parser.add_argument("--truncation_side", type=str, default='right', help='Truncate from left or right', choices=['left', 'right'])
+parser.add_argument("--continue_line", type=int, default=0, help='Continue training in triples file from given line')
+parser.add_argument("--save_last_hidden", action='store_true', 'Saves last hiden state under MODELDIR/last_hidden.p')
 
-parser.add_argument("--aloss_scalar", type=float, default=0.0001)
-parser.add_argument("--aloss", action='store_true')
-parser.add_argument("--tf_embeds", action='store_true')
-parser.add_argument("--sparse_dim", type=int, default=10000)
+parser.add_argument("--aloss_scalar", type=float, default=0.0001, help='Loss scalar for the auxiliary sparsity loss.')
+parser.add_argument("--aloss", action='store_true', help='Using auxilliary sparsity loss.')
+parser.add_argument("--tf_embeds", action='store_true', help='[Experimental] Add term frequencies to input embeddings.')
+parser.add_argument("--sparse_dim", type=int, default=10000, help='Dimensionality of the sparsity layer.')
 
-parser.add_argument("--no_pos_emb", action='store_true')
-parser.add_argument("--shuffle", action='store_true')
-parser.add_argument("--sort", action='store_true')
-parser.add_argument("--eval_strategy", default='first_p', type=str)
-parser.add_argument("--keep_q", action='store_true')
-parser.add_argument("--drop_q", action='store_true')
-parser.add_argument("--preserve_q", action='store_true')
-parser.add_argument("--mse_loss", action='store_true')
-parser.add_argument("--rand_passage", action='store_true')
+parser.add_argument("--no_pos_emb", action='store_true', help='[Experimental] Removes the position embedding.')
+parser.add_argument("--shuffle", action='store_true', help='[Experimental] Shuffles training and test tokens (after tokenization)')
+parser.add_argument("--sort", action='store_true', help='[Experimental] Sortes document tokens in descending order by tokenid. ')
+parser.add_argument("--eval_strategy", default='first_p', type=str, help='Evaluation strategy.', choices=['first_p', 'last_p', 'max_p'])
+parser.add_argument("--keep_q", action='store_true', help='[Experimental] Remove all but query terms in document.')
+parser.add_argument("--drop_q", action='store_true', help='[Experimental] Removes all query terms from document.')
+parser.add_argument("--preserve_q", action='store_true', help='[Experimental]')
+parser.add_argument("--mse_loss", action='store_true', help='[Experimental]')
+parser.add_argument("--rand_passage", action='store_true', help='[Experimental] Select a random passage of length "max_q_len" from entire input.')
 
 args = parser.parse_args()
 print(args)
-print(args.eval_strategy == 'last_p')
+# adjust truncation side dependent on evaluation strategy
 if args.eval_strategy == 'last_p':
     truncation_side = 'left'
 else:
     truncation_side = 'right'
 args.truncation_side = truncation_side
-print(truncation_side)
-#experiments_path = 'project/draugpu/experiments_rank_model/'
 model_dir = "/".join(args.model.split('/')[:-1])
 
-# train data
-if args.mse_loss:
-    DATA_FILE_TRAIN = "data/msmarco_ensemble/bert_cat_ensemble_msmarcopassage_ids_train_scores.tsv"
-else:
-    DATA_FILE_TRAIN = "data/msmarco/qidpidtriples.train.full.tsv"
-ID2Q_TRAIN = "data/msmarco/queries.train.tsv" 
-ID2DOC_test = None
+#if args.mse_loss:
+#    DATA_FILE_TRAIN = "data/msmarco_ensemble/bert_cat_ensemble_msmarcopassage_ids_train_scores.tsv"
 
-# test data
-if args.dataset == '2020':
-    QRELS_TEST = "data/msmarco/2020qrels-pass.txt"
-    DATA_FILE_TEST = "data/msmarco/msmarco-passagetest2020-top1000_ranking_results_style_54.tsv" 
-    ID2Q_TEST = "data/msmarco/msmarco-test2020-queries.tsv"
-    ID2DOC_train = 'data/msmarco/collection.tsv'
 
-if args.dataset == '2020_docs':
-    QRELS_TEST = "data/msmarco_docs/2020qrels-docs.txt"
-    DATA_FILE_TEST = "data/msmarco_docs/msmarco-doctest2020-top100_judged" 
-    ID2Q_TEST = "data/msmarco_docs/msmarco-test2020-queries.tsv"
-    ID2DOC_train = 'data/msmarco_docs/msmarco-docs.tsv_test_2020.tsv'
-
-elif args.dataset == '2019_docs_tfidf':
-    QRELS_TEST = "data/msmarco_docs/2020qrels-docs.txt"
-    DATA_FILE_TEST = "data/msmarco_docs/msmarco-doctest2020-top100_judged" 
-    ID2Q_TEST = "data/msmarco_docs/msmarco-test2020-queries.tsv"
-    ID2DOC_train = 'data/msmarco_docs/msmarco-docs.in_triples.tfidf_decr.tsv'
-    ID2DOC_test = 'data/msmarco_docs/msmarco-docs.tsv_test_2020.tsv_plm_512'
-    #ID2DOC_test = 'data/msmarco_docs/msmarco-docs.tsv_test_2020.tsv_tfidf_msmarco_sorted_decreasing_uniq'
-    ID2Q_TRAIN = "data/msmarco_docs/msmarco-doctrain-queries.tsv" 
-    DATA_FILE_TRAIN = "data/msmarco_docs/triples.tsv"
-
-elif args.dataset == '2019_docs':
-    QRELS_TEST = "data/msmarco_docs/2020qrels-docs.txt"
-    DATA_FILE_TEST = "data/msmarco_docs/msmarco-doctest2020-top100_judged" 
-    ID2Q_TEST = "data/msmarco_docs/msmarco-test2020-queries.tsv"
-    ID2DOC_train = 'data/msmarco_docs/msmarco-docs.in_triples.title+body.tsv'
-    ID2DOC_test = 'data/msmarco_docs/msmarco-docs.tsv_test_2020.tsv'
-    ID2Q_TRAIN = "data/msmarco_docs/msmarco-doctrain-queries.tsv" 
-    DATA_FILE_TRAIN = "data/msmarco_docs/triples.tsv"
-
-elif args.dataset == '2021':
-    QRELS_TEST = "data/msmarco/2021.qrels.pass.final.txt"
-    ID2Q_TEST = "data/msmarco_2/2021_queries.tsv"
-    ID2DOC_train = 'data/msmarco_2/passages_provided_top_100.tsv'
-elif args.dataset == 'clueweb':
-    QRELS_TEST = "data/clue/qrels.web.1-200.txt"
-    ID2DOC_train = "data/clue/clueweb09b_docs_cleaned_docs_in_run_spam_filtered_100"
-    ID2Q_TEST = "data/clue/topics.web.1-200.txt"
-    DATA_FILE_TEST = "data/clue/topics.web.1-200.xml.run.cw09b.bm25.top-100_stemmed_remove_stop_spam_filtered_self_extracted"
-
-elif args.dataset == '2022_docs':
-    QRELS_TEST = "data/msmarco_2/2022.qrels.docs.inferred.txt"
-    ID2Q_TEST = "data/msmarco_2/2022_queries.tsv"
-    DATA_FILE_TEST = "data/msmarco_2/2022_document_top100.txt"
-    ID2DOC_train = 'data/msmarco_2/2022_docs_nist.tsv'
-
-elif args.dataset == '2021_docs':
-    QRELS_TEST = "data/msmarco_docs/2021.qrels.docs.final.txt"
-    ID2Q_TEST = "data/msmarco_docs/2021_queries.tsv"
-    DATA_FILE_TEST = "data/msmarco_docs/2021_document_top100_judged.txt"
-    ID2DOC_train = 'data/msmarco_docs/msmarco_v2_2021_judged.tsv'
-
-elif args.dataset == '2019':
-    QRELS_TEST = "data/msmarco/2019qrels-pass.txt"
-    DATA_FILE_TEST = "data/msmarco/msmarco-passagetest2019-top1000_43_ranking_results_style.tsv"
-    ID2Q_TEST = "data/msmarco/msmarco-test2019-queries_43.tsv"
-    ID2DOC_train = 'data/msmarco/collection.tsv'
-
-elif args.dataset == 'robust':
-    QRELS_TEST = "data/robust_test/qrels.robust2004.txt"
-    #DATA_FILE_TEST = "data/robust_test/run.robust04.bm25.no_stem.trec"
-    DATA_FILE_TEST = "data/robust_test/run.robust04.bm25.no_stem.trec_top_100"
-    ID2Q_TEST = 'data/robust_test/04.testset_num_query_lower'
-    ID2DOC_train = 'data/robust/robust04_raw_docs.num_query'
-
-elif args.dataset == '100_callan':
-    #QRELS_TEST = 'data/distributed_ir/qrels.adhoc.51-200.txt'
-    QRELS_TEST = 'data/distributed_ir/qrel.51-150'
-    ID2Q_TEST = 'data/distributed_ir/topics.adhoc.51-200.txt.tsv'
-    DATA_FILE_TEST = 'data/distributed_ir/run.all_trec.bm25.topics.adhoc.51-200.txt'
-    ID2DOC_train = 'data/distributed_ir/trec_123.tsv'
-
-elif args.dataset == 'trec4_kmeans':
-    QRELS_TEST = 'data/distributed_ir/qrels.adhoc.201-250.txt'
-    ID2Q_TEST = 'data/distributed_ir/topics.adhoc.201-250.txt.desc.tsv'
-    ID2DOC_train = 'data/distributed_ir/trec_23.tsv'
-    DATA_FILE_TEST = 'data/distributed_ir/run.all_trec.bm25.topics.desc.adhoc.201-250.disks23.txt'
-
-if args.collection != None:
-    ID2DOC_train = args.collection
-if args.run != None:
-    DATA_FILE_TEST = args.run
 # instanitae model
 model, tokenizer, model_eval_fn, encoding, prepend_type = get_model(args.model, args.checkpoint, truncation_side=args.truncation_side, encoding=args.encode, sparse_dim=args.sparse_dim)
 
 
+dataset = json.loads(open('dataset.json').read())
+
+
 # instantiate Data Reader
-if args.train:
-    id2d_train = File(ID2DOC_train, encoded=False)
-    id2q_train = File(ID2Q_TRAIN, encoded=False)
-    dataset_train = DataReader(tokenizer, DATA_FILE_TRAIN, 2, True, id2q_train, id2d_train, args.mb_size_train, encoding=encoding, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, has_label_scores=args.mse_loss, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, continue_line=args.continue_line)
-    dataloader_train = DataLoader(dataset_train, batch_size=None, num_workers=1, pin_memory=False, collate_fn=dataset_train.collate_fn)
-
-if args.encode:
-    dataset = MSMARCO(args.collection, tokenizer, max_len=args.max_inp_len)
-    dataloader_encode = DataLoader(dataset, batch_size=args.mb_size_test, num_workers=1, collate_fn=dataset.collate_fn)
-else:
-    if ID2DOC_test == None:
-        id2d_test = File(ID2DOC_train, encoded=False)
-    else:
-        id2d_test = File(ID2DOC_test, encoded=False)
-
-    # load data
-    id2q_test = File(ID2Q_TEST, encoded=False)
-
-
-    dataset_test = DataReader(tokenizer, DATA_FILE_TEST, 1, False, id2q_test, id2d_test, args.mb_size_test, encoding=encoding, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, sliding_window=args.eval_strategy!='first_p' and args.eval_strategy != 'last_p', rand_passage=args.rand_passage)
-    dataloader_test = DataLoader(dataset_test, batch_size=None, num_workers=0, pin_memory=False, collate_fn=dataset_test.collate_fn)
-
-model = model.to('cuda')
-
-model_dir = f'{args.out_folder}/{args.dataset}_{args.model}'
-if not args.train:
-    model_dir += args.add_to_dir
-    model_dir += '_eval/'
-else:
+if args.dataset_train:
     model_dir += f'bz_{args.mb_size_train}_lr_{args.learning_rate}'
     model_dir += args.add_to_dir
 
 
-writer = SummaryWriter(f'{model_dir}/log/')
+    docs_file = dataset['train'][args.datatset]['docs']
+    queries_file = dataset['train'][args.datatset]['queries']
+    triples = dataset['train'][args.datatset]['triples']
+
+    #load file
+    queries = File(queries_file, encoded=False)
+    docs = File(docs_file, encoded=False)
+
+    dataset_train = DataReader(tokenizer, triples, 2, True, queries, docs, args.mb_size_train, encoding=encoding, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, has_label_scores=args.mse_loss, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, continue_line=args.continue_line)
+    dataloader_train = DataLoader(dataset_train, batch_size=None, num_workers=1, pin_memory=False, collate_fn=dataset_train.collate_fn)
+
+
+# encode 
+if args.encode:
+    model_dir += args.add_to_dir
+    model_dir += '_encode/'
+    encode_file = args.encode
+    dataset = MSMARCO(encode_file, tokenizer, max_len=args.max_inp_len)
+    dataloader_encode = DataLoader(dataset, batch_size=args.mb_size_test, num_workers=1, collate_fn=dataset.collate_fn)
+
+if args.dataset_test:
+    model_dir += args.add_to_dir
+    model_dir += '_test/'
+#if we are not encoding then we carrying out testing by default
+    docs_file = dataset['test'][args.datatset]['docs']
+    queries_file = dataset['test'][args.datatset]['queries']
+    trec_run = dataset['test'][args.datatset]['trec_run']
+    
+    #load file
+    queries = File(queries_file, encoded=False)
+    # if training and testing docs are the same and they are loaded already don't load them again
+    if docs_file != dataset['train'][args.dataset]['docs'] and not args.dataset_train:
+        docs = File(docs_file, encoded=False)
+
+    dataset_test = DataReader(tokenizer, trec_run, 1, False, queries, docs, args.mb_size_test, encoding=encoding, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, sliding_window=args.eval_strategy!='first_p' and args.eval_strategy != 'last_p', rand_passage=args.rand_passage)
+    dataloader_test = DataLoader(dataset_test, batch_size=None, num_workers=0, pin_memory=False, collate_fn=dataset_test.collate_fn)
+
+# determine the name of the model directory
+model_dir = f'{args.exp_dir}/{args.dataset}_{args.model}'
+# print model directory
 print('model dir', model_dir)
+# create directory
 os.makedirs(model_dir, exist_ok=True)
-
-
+# write parameter flags to model folder
 with open(f'{model_dir}/args.json', 'wt') as f:
     json.dump(vars(args), f, indent=4)
+# initialize summary writer
+writer = SummaryWriter(f'{model_dir}/log/')
 
+# model to gpu
+model = model.to('cuda')
+# use multiple gpus if available
+if torch.cuda.device_count() > 1 and not args.single_gpu:
+    model = torch.nn.DataParallel(model)
+
+# set position embeddings to zero if parameter is passed
 if args.no_pos_emb:
     #emb = getattr(model, args.model.split('.')[0]).embeddings.position_embeddings
     if hasattr(model, 'bert'):
@@ -226,20 +160,19 @@ if args.no_pos_emb:
     emb.weight.requires_grad = False
     print('!!Removing positional Embeddings!!!')
 
-if torch.cuda.device_count() > 1 and not args.single_gpu:
-    model = torch.nn.DataParallel(model)
-
-def print_message(s):
-    print("[{}] {}".format(datetime.datetime.utcnow().strftime("%b %d, %H:%M:%S"), s), flush=True)
 
 
-
-#optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=args.learning_rate, weight_decay=0.0001)
 
 optimizer = AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=args.learning_rate, weight_decay=0.01)
 scheduler = get_linear_schedule_with_warmup(optimizer=optimizer, num_warmup_steps=6000, num_training_steps=150000)
 scaler = torch.cuda.amp.GradScaler(enabled=not args.no_fp16)
 
+
+def print_message(s):
+    print("[{}] {}".format(datetime.datetime.utcnow().strftime("%b %d, %H:%M:%S"), s), flush=True)
+
+
+# select losses according to model architecture
 if encoding == 'cross' or encoding == 'cross_fairseq':
     criterion = nn.CrossEntropyLoss()
 elif encoding == 'bi':
@@ -250,15 +183,12 @@ if args.mse_loss:
     criterion = MarginMSELoss()
 
 
-def encode(model, tokenizer, collection, model_eval_fn, dataloader, model_dir, eval_strategy='first_p', encode_query=False):
 
 
-    model.eval()
-    
-    if encode_query: 
-        fname = f'{model_dir}/query_encoded_dict.p'
-    else:
-        fname = f'{model_dir}/doc_encoded_dict.p'
+def encode(encode_file, model, tokenizer, model_eval_fn, dataloader, model_dir, eval_strategy='first_p'):
+
+    emb_file = encode_file + '.encoded.p'
+    model.eval() 
     emb_dict = {} 
     with torch.no_grad():
         for num_i, features in tqdm(enumerate(dataloader)):
@@ -267,7 +197,7 @@ def encode(model, tokenizer, collection, model_eval_fn, dataloader, model_dir, e
                 ids, embs = model_eval_fn(model, features, index=0)
                 for id_, emb_ in zip(ids, embs.detach().cpu().numpy()):
                     emb_dict[id_] = emb_
-        pickle.dump(emb_dict, open(fname, 'wb'))
+        pickle.dump(emb_dict, open(emb_file, 'wb'))
                  
 
         
@@ -429,9 +359,9 @@ def train_model(model, dataloader_train, dataloader_test, model_eval_fn, criteri
             model.module.save_pretrained(f'{model_dir}/model_{ep_idx+1}')
 
 
-if args.train:
+if args.dataset_train:
     train_model(model, dataloader_train, dataloader_test, model_eval_fn, criterion, optimizer, model_dir, encoding=encoding, num_epochs=args.num_epochs, aloss_scalar=args.aloss_scalar, aloss=args.aloss, fp16=not args.no_fp16)
 if args.encode:
-    encode(model, tokenizer, args.collection, model_eval_fn, dataloader_encode, model_dir, encode_query=args.encode_query)
-else:
+    encode(args.encode, model, tokenizer, model_eval_fn, dataloader_encode, model_dir)
+if args.dataset_test:
     eval_model(model, model_eval_fn, dataloader_test, model_dir, save_hidden_states=args.save_last_hidden, eval_strategy=args.eval_strategy)
