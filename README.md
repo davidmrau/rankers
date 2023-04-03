@@ -111,7 +111,7 @@ Example testing the `CrossEncoder` on the Nist 2020 passage retrieval task `2020
 ```
 python3 run.py \
 	--model 'CrossEncoder' \
-	--dataset '2020_pass' \
+	--dataset_test '2020_pass' \
 	--max_inp_len 512 \
 	--mb_size_test 4096 \
 	--exp_folder '/experiments/folder/'
