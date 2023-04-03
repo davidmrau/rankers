@@ -258,7 +258,7 @@ We provide examplary inputs of each file in the following:
 
 ## Models 
 
-All models are defined in the folder `models/`. The file `models/__init__.py` will automatically scan all python3 files (`*.py`) and import all (model) classes defined in `models/[model_name.py]`. The models can then be used by running:
+All models are defined in the folder `models/`. The file `models/__init__.py` will automatically scan all python files (`*.py`) and import all (model) classes defined in `models/[model_name.py]`. The models can then be used by running:
 
 `python3 run.py --model [ModelClassName]`
 
