@@ -259,18 +259,18 @@ We provide examplary inputs of each file in the following:
 
 ## Encoding
 
-Example encoding `/path/to/file.tsv` using the  `CrossEncoder`. 
+Example encoding `examples/example_docs.tsv` using the  `CrossEncoder`. 
 
 ```python
 python3 run.py \
 	--model 'CrossEncoder' \
-	--encode 'exmples/example_docs.tsv' \
+	--encode 'examples/example_docs.tsv' \
 	--max_inp_len 512 \
 	--mb_size_test 128 \
-	--exp_dir 'experiments/folder'
+	--exp_dir '/tmp/experiments_folder'
 ```
 
-This will save embeddings as numpy arrays in a dict under `/experimers/folder/file.tsv.encoded.p` with the format:
+This will save embeddings as numpy arrays in a dict under `/tmp/experiments_folder/example_docs.tsv.encoded.p` with the format:
 
 ```
 {
