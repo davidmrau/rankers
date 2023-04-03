@@ -1,4 +1,5 @@
 
+from transformers import LongformerTokenizer, LongformerForSequenceClassification
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 class LongformerQA():

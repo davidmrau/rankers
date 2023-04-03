@@ -1,16 +1,8 @@
-
-from bert_cat import BERT_Cat
-from splade import Splade, SpladeConfig
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModel, AutoModelForSeq2SeqLM, T5Tokenizer, AutoModelForMaskedLM, RobertaTokenizer, BertTokenizer, BertForSequenceClassification, BertConfig, AutoConfig
-from transformers import LongformerTokenizer, LongformerForSequenceClassification
-from fairseq.models.roberta import RobertaModel
 import torch.nn as nn
 import torch
-from bert_tf import BERT_TF, BERT_TF_Config
-import time 
 import datetime
-import numpy as np 
-from idcm import IDCM_InferenceOnly
+
+
 class MarginMSELoss(nn.Module):
     def __init__(self):
         super(MarginMSELoss, self).__init__()
@@ -59,7 +51,8 @@ class RegWeightScheduler:
 
 
 
-
+#from bert_cat import BERT_Cat
+#from fairseq.models.roberta import RobertaModel
 #    elif 'roberta.shuffle' in model_name or 'roberta.base.orig' == model_name:
 #
 #        tokenizer = AutoTokenizer.from_pretrained('roberta-base')
