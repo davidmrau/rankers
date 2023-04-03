@@ -125,17 +125,16 @@ New datasets with their respective file paths can be added in `datasets.json` an
 ```
 {
 	{ 'test':
-	
-		{ 
-		...
-		}, 
-		
-		{ 'new_dataset': 
+		'new_dataset': 
 			'qrels': 'qrels_path',
 			'trec_run': 'trec_run_path',
 			'queries': 'queries_path',
 			'docs': 'doc_path',
-		}
+		
+	},
+	
+	{
+	...
 	}
 }
 ```
@@ -213,16 +212,15 @@ New datasets with their respective file paths can be added in `datasets.json` an
 ```
 {
 	{ 'train':
-	
-		{ 
-		...
-		}, 
 		
-		{ 'new_dataset': 
+		'new_dataset': 
 			'triples': 'triples_path',
 			'queries': 'queries_path',
 			'docs': 'doc_path',
-		}
+	},
+
+	{
+	...
 	}
 }
 ```
