@@ -10,14 +10,14 @@ All operations are carried out by making use of the `run.py` script.
 
 ## Library Structure:
 ```
-run.py					- main file training, evaluation and encoding
+run.py				- main file training, evaluation and encoding
 data_reader.py			- data_loader taking care of the pre-processing, read files iteratively (without loading them into memory)
-utils.py				- losses, RegScheduler, util functions
+utils.py			- losses, RegScheduler, util functions
 file_interface.py		- reads files into abstract class 
-metrics.py 				- evaluation with trec_eval
+metrics.py 			- evaluation with trec_eval
 datasets.json			- defines datasets and file paths 
-models/					- base directory containing model files
-	__init__.py			- scans model directory for model classes
+models/				- base directory containing model files
+	__init__.py		- scans model directory for model classes
 	[model_name].py 	- defines model
 
 ```
