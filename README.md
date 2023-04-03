@@ -11,6 +11,9 @@ All operations are carried out by making use of the `run.py` script.
 ## Library Structure:
 ```
 run.py				- main file training, evaluation and encoding
+train_model.py			- training function
+eval_model.py			- evaluation function
+decode.py			- decoding function
 data_reader.py			- data_loader taking care of the pre-processing, read files iteratively (without loading them into memory)
 utils.py			- losses, RegScheduler, util functions
 file_interface.py		- reads files into abstract class 
