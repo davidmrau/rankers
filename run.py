@@ -31,8 +31,8 @@ from performance_monitor import PerformanceMonitor
 parser = argparse.ArgumentParser()
 parser.add_argument("--model", type=str, required=True, help='Model name defined in model.py')
 parser.add_argument("--exp_dir", type=str, required=True, help='Base directory where files will be saved to.' )
-parser.add_argument("--dataset_test", type=str, required=None, help='Test dataset name defined in dataset.json')
-parser.add_argument("--dataset_train", type=str, default=None, help='Train dataset name defined in dataset.json')
+parser.add_argument("--dataset_test", type=str, required=None, help='Test dataset name defined in dataset.json', choices=['2019_pass', '2019_doc', '2020_pass', '2020_doc', '2021_pass', '2021_doc', '2022_doc', 'clueweb', 'robust', 'robust_100_callan', 'robust_100_kmeans'])
+parser.add_argument("--dataset_train", type=str, default=None, help='Train dataset name defined in dataset.json', choices=['pass', 'doc', 'doc_tfidf'])
 parser.add_argument("--encode", type=str, default=None, help='Path to file to encode. Format "qid\tdid\n".')
 
 
@@ -76,14 +76,12 @@ if args.eval_strategy == 'last_p':
 else:
     truncation_side = 'right'
 args.truncation_side = truncation_side
-model_dir = "/".join(args.model.split('/')[:-1])
 
 #if args.mse_loss:
 #    DATA_FILE_TRAIN = "data/msmarco_ensemble/bert_cat_ensemble_msmarcopassage_ids_train_scores.tsv"
 
 
 # instanitae model
-print(globals())
 ranker = globals()[args.model](vars(args))
 
 #if checkpoint load from_pretrained
@@ -100,11 +98,11 @@ if torch.cuda.device_count() > 1 and not args.single_gpu:
 # load dataset paths
 dataset = json.loads(open('datasets.json').read())
 
+# determine the name of the model directory
 
 # instantiate Data Reader
 if args.dataset_train:
-    model_dir += f'bz_{args.mb_size_train}_lr_{args.learning_rate}_ep_{args.num_epochs}_max_inp_len_{args.max_inp_len}'
-    model_dir += args.add_to_dir
+    model_dir = f'{args.exp_dir}/train/{args.dataset_train}_{args.model}_{args.dataset_test}_bz_{args.mb_size_train}_lr_{args.learning_rate}_ep_{args.num_epochs}_max_inp_len_{args.max_inp_len}'
 
 
     docs_file = dataset['train'][args.dataset_train]['docs']
@@ -115,37 +113,42 @@ if args.dataset_train:
     queries = File(queries_file, encoded=False)
     docs = File(docs_file, encoded=False)
 
-    dataset_train = DataReader(ranker.tokenizer, ranker.type, triples, 2, True, queries, docs, args.mb_size_train, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, has_label_scores=args.mse_loss, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, continue_line=args.continue_line)
+    dataset_train = DataReader(ranker.tokenizer, ranker.type, triples, 2, True, queries, docs, args.mb_size_train, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, has_label_scores=args.mse_loss, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, continue_line=args.continue_line)
     dataloader_train = DataLoader(dataset_train, batch_size=None, num_workers=1, pin_memory=False, collate_fn=dataset_train.collate_fn)
 
 
 # encode 
 if args.encode:
-    model_dir += args.add_to_dir
-    model_dir += '_encode/'
+    encode_filename = args.encode.split('/')[-1]
+    if not args.checkpoint:
+        model_dir = f'{args.exp_dir}/encode/{args.model}_{encode_filename}'
+    else:
+        check = args.checkpoint
+        model_dir = '{args.checkpoint}/encode_{encode_filename}'
     encode_file = args.encode
-    dataset = MSMARCO(encode_file, ranker.tokenizer, max_len=args.max_inp_len)
+    dataset = MSMARCO(args.encode, ranker.tokenizer, max_len=args.max_inp_len)
     dataloader_encode = DataLoader(dataset, batch_size=args.mb_size_test, num_workers=1, collate_fn=dataset.collate_fn)
 
 if args.dataset_test:
-    model_dir += args.add_to_dir
-    model_dir += '_test/'
+    # if we are training then just save evaluation to training foler
+    if not args.dataset_train:
+        model_dir = f'{args.exp_dir}/test/{args.dataset_test}_{args.model}_max_inp_len_{args.max_inp_len}'
 #if we are not encoding then we carrying out testing by default
     docs_file = dataset['test'][args.dataset_test]['docs']
     queries_file = dataset['test'][args.dataset_test]['queries']
     trec_run = dataset['test'][args.dataset_test]['trec_run']
+    qrels_file = dataset['test'][args.dataset_test]['qrels']
     
     #load file
     queries = File(queries_file, encoded=False)
     # if training and testing docs are the same and they are loaded already don't load them again
-    if docs_file != dataset['train'][args.dataset_train]['docs'] and not args.dataset_train:
+    if not args.dataset_train or not docs_file != dataset['train'][args.dataset_train]['docs']:
         docs = File(docs_file, encoded=False)
 
-    dataset_test = DataReader(ranker.tokenizer, ranker.type, trec_run, 1, False, queries, docs, args.mb_size_test, prepend_type=prepend_type, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, sliding_window=args.eval_strategy!='first_p' and args.eval_strategy != 'last_p', rand_passage=args.rand_passage)
+    dataset_test = DataReader(ranker.tokenizer, ranker.type, trec_run, 1, False, queries, docs, args.mb_size_test, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, sliding_window=args.eval_strategy!='first_p' and args.eval_strategy != 'last_p', rand_passage=args.rand_passage)
     dataloader_test = DataLoader(dataset_test, batch_size=None, num_workers=0, pin_memory=False, collate_fn=dataset_test.collate_fn)
-
-# determine the name of the model directory
-model_dir = f'{args.exp_dir}/train_{args.dataset_train}_test_{args.dataset_test}{args.model}'
+# append add_to_dir
+model_dir += f'_{args.add_to_dir}'
 # print model directory
 print('model dir', model_dir)
 # create directory
@@ -240,7 +243,7 @@ def encode(ranker, encode_file, dataloader, model_dir, eval_strategy='first_p'):
 
 
 
-def eval_model(ranker, dataloader_test, model_dir,  max_rank='1000', eval_metric='ndcg_cut_10', suffix='', save_hidden_states=False, eval_strategy='first_p'):
+def eval_model(ranker, dataloader_test, qrels_file, model_dir,  max_rank='1000', eval_metric='ndcg_cut_10', suffix='', save_hidden_states=False, eval_strategy='first_p'):
     ranker.model.eval()
     res_test = {}
     batch_latency = []
@@ -249,7 +252,7 @@ def eval_model(ranker, dataloader_test, model_dir,  max_rank='1000', eval_metric
     for num_i, features in tqdm(enumerate(dataloader_test)):
         with torch.inference_mode():
             start_time = time.time()
-            out = ranker.model.get_scores(features, index=0)
+            out = ranker.get_scores(features, index=0)
             timer = time.time()-start_time
             scores = out['scores']
 
@@ -291,7 +294,7 @@ def eval_model(ranker, dataloader_test, model_dir,  max_rank='1000', eval_metric
     perf_monitor.log_unique_value("eval_median_batch_pair_latency_ms", np.median(batch_latency))
     perf_monitor.print_summary()
     # RUN TREC_EVAL
-    test = Trec(args.eval_metric, 'trec_eval', QRELS_TEST, max_rank, ranking_file_path=f'{model_dir}/model_eval_ranking{suffix}')
+    test = Trec(args.eval_metric, 'trec_eval', qrels_file, max_rank, ranking_file_path=f'{model_dir}/model_eval_ranking{suffix}')
     eval_val = test.score(sorted_scores, q_ids)
     print_message('model:{}, {}@{}:{}'.format("eval", eval_metric, max_rank, eval_val))
     if save_hidden_states:
@@ -299,7 +302,7 @@ def eval_model(ranker, dataloader_test, model_dir,  max_rank='1000', eval_metric
     return eval_val
 
 
-def train_model(ranker, dataloader_train, dataloader_test, criterion, optimizer,  model_dir, num_epochs=40, epoch_size=1000, log_every=10, save_every=1, aloss=False, aloss_scalar=None, fp16=True):
+def train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer,  model_dir, num_epochs=40, epoch_size=1000, log_every=10, save_every=1, aloss=False, aloss_scalar=None, fp16=True):
     batch_iterator = iter(dataloader_train)
     total_examples_seen = 0
     ranker.model.train()
@@ -316,7 +319,7 @@ def train_model(ranker, dataloader_train, dataloader_test, criterion, optimizer,
                 batch_iterator = iter(dataloader_train)
                 continue
             with torch.cuda.amp.autocast(enabled=fp16):
-                out_1, out_2 = ranker.model.get_scores(features, index=0), ranker.model.get_scores(features, index=1)
+                out_1, out_2 = ranker.get_scores(features, index=0), ranker.get_scores(features, index=1)
                 scores_doc_1, scores_doc_2 = out_1['scores'], out_2['scores']
                 optimizer.zero_grad()
                 if args.mse_loss:
@@ -360,7 +363,7 @@ def train_model(ranker, dataloader_train, dataloader_test, criterion, optimizer,
 
         print_message('epoch:{}, av loss:{}'.format(ep_idx + 1, epoch_loss / (epoch_size) ))
 
-        eval_model(ranker, dataloader_test, model_dir, suffix=ep_idx)
+        eval_model(ranker, dataloader_test, qrels_file, model_dir, suffix=ep_idx)
 
         print('saving_model')
 
@@ -369,8 +372,8 @@ def train_model(ranker, dataloader_train, dataloader_test, criterion, optimizer,
 
 
 if args.dataset_train:
-    train_model(ranker, dataloader_train, dataloader_test, criterion, optimizer, model_dir, num_epochs=args.num_epochs, aloss_scalar=args.aloss_scalar, aloss=args.aloss, fp16=not args.no_fp16)
+    train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, model_dir, num_epochs=args.num_epochs, aloss_scalar=args.aloss_scalar, aloss=args.aloss, fp16=not args.no_fp16)
 if args.encode:
     encode(args.encode, ranker, dataloader_encode, model_dir)
 if args.dataset_test:
-    eval_model(ranker, dataloader_test, model_dir, save_hidden_states=args.save_last_hidden, eval_strategy=args.eval_strategy)
+    eval_model(ranker, dataloader_test, qrels_file, model_dir, save_hidden_states=args.save_last_hidden, eval_strategy=args.eval_strategy)

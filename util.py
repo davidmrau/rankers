@@ -1,7 +1,6 @@
 
 from bert_cat import BERT_Cat
 from splade import Splade, SpladeConfig
-from sparse_bert import SparseBert, SparseBertConfig
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoModel, AutoModelForSeq2SeqLM, T5Tokenizer, AutoModelForMaskedLM, RobertaTokenizer, BertTokenizer, BertForSequenceClassification, BertConfig, AutoConfig
 from transformers import LongformerTokenizer, LongformerForSequenceClassification
 from fairseq.models.roberta import RobertaModel

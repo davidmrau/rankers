@@ -11,7 +11,7 @@ class DataReader(torch.utils.data.IterableDataset):
                 
 
                 
-    def __init__(self, tokenizer, model_type, data_file, num_docs, multi_pass, id2q, id2d, MB_SIZE, qrel_columns={'doc': 0, 'query': 2, 'score': 4},continue_line=None, prepend_type=False, keep_q=False, drop_q=False, preserve_q=False, shuffle=False, sort=False, has_label_scores=False, max_q_len=None, max_inp_len=512, tf_embeds=False, sliding_window=False, rand_length=False, rand_passage=False):
+    def __init__(self, tokenizer, model_type, data_file, num_docs, multi_pass, id2q, id2d,  MB_SIZE, qrel_columns={'doc': 0, 'query': 2, 'score': 4},continue_line=None, prepend_type=False, keep_q=False, drop_q=False, preserve_q=False, shuffle=False, sort=False, has_label_scores=False, max_q_len=None, max_inp_len=512, tf_embeds=False, sliding_window=False, rand_length=False, rand_passage=False):
             print(data_file)
             self.num_docs = num_docs
             self.doc_col = 2 if self.num_docs <= 1 else 1
