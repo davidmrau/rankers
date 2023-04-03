@@ -119,7 +119,7 @@ python3 run.py \
 
 ### Adding a new Test Dataset:
 
-New datasets with their respective file paths can be added in `datasets.json`. Datsets follow the format:
+New datasets with their respective file paths can be added in `datasets.json` and subsequently be loaded using `--dataset_test new_dataset`. Test Datasets follow the format:
 
 ```
 {
@@ -207,7 +207,7 @@ python3 run.py \
 
 ### Adding a new Training Dataset:
 
-New datasets with their respective file paths can be added in `datasets.json`. Datsets follow the format:
+New datasets with their respective file paths can be added in `datasets.json` and subsequently be loaded using `--dataset_train new_dataset`. Training Datsets follow the format:
 
 ```
 {
