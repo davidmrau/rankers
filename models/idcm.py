@@ -2,6 +2,29 @@ from transformers import AutoTokenizer,AutoModel, PreTrainedModel,PretrainedConf
 from typing import Dict
 import torch
 from torch import nn as nn
+import time
+
+
+class IDCM()
+
+    def __init__(self, kwargs):
+        self.type = 'cross'
+        self.tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased") # honestly not sure if that is the best way to go, but it works :)
+        self.model = IDCM_InferenceOnly.from_pretrained("sebastian-hofstaetter/idcm-distilbert-msmarco_doc")
+        self.kwargs = kwargs
+
+    def get_scores(self, features, index):
+        encoded_queries = features['encoded_queries']
+        encoded_docs = features['encoded_docs'][index]
+        #start = time.time()
+        scores = self.model(query=encoded_queries.to('cuda'), document=encoded_docs.to('cuda'))
+        #finish = (time.time() - start)
+        return_dict = {}
+        return_dict['scores'] = scores
+        #return_dict['time'] = finish
+        return return_dict
+
+
 class IDCM_Config(PretrainedConfig):
     bert_model:str
     # how many passages get scored by BERT 
