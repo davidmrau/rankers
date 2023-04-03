@@ -113,7 +113,7 @@ python3 run.py \
 	--model 'CrossEncoder' \
 	--dataset_test '2020_pass' \
 	--max_inp_len 512 \
-	--mb_size_test 4096 \
+	--mb_size_test 128 \
 	--exp_dir '/experiments/folder/'
 ```
 
@@ -198,8 +198,8 @@ python3 run.py \
 	--dataset_test '2020_pass'
 	--model 'CrossEncoder' \
 	--exp_dir 'experiments/folder/' \
-	--mb_size_train 512 \
-	--mb_size_test 1024 \
+	--mb_size_train 128 \
+	--mb_size_test 128 \
 	--learning_rate 0.000003 \
 	--max_inp_len 512
 
@@ -266,7 +266,7 @@ python3 run.py \
 	--model 'CrossEncoder' \
 	--encode '/path/to/file.tsv' \
 	--max_inp_len 512 \
-	--mb_size_test 4096 \
+	--mb_size_test 128 \
 	--exp_dir 'experiments/folder'
 ```
 
