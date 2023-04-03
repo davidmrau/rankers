@@ -260,12 +260,12 @@ We provide examplary inputs of each file in the following:
 
 All models are defined in the folder `models/`. The file `models/__init__.py` will automatically scan all python3 files (`*.py`) and import all (model) classes defined in `models/[model_name.py]`. The models can then be used by running:
 
-`python3 run.py --model [ModelClass]`
+`python3 run.py --model [ModelClassName]`
 
 Our library uses a python wrapper around each model which follows the following Template:
 
 ```python
-class ModelTemplate():
+class ModelClassName():
 
     def __init__(self, kwargs):
         self.kwargs = kwargs
