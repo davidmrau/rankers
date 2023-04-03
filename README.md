@@ -72,7 +72,7 @@ options:
                         Truncate from left or right
   --continue_line CONTINUE_LINE
                         Continue training in triples file from given line
-  --save_last_hidden    Saves last hiden state under MODELDIR/last_hidden.p
+  --save_last_hidden    Saves last hiden state under exp_dir/model_dir/last_hidden.p
   --aloss_scalar ALOSS_SCALAR
                         Loss scalar for the auxiliary sparsity loss.
   --aloss               Using auxilliary sparsity loss.
