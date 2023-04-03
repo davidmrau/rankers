@@ -15,7 +15,7 @@ metrics.py 			- evaluation with trec_eval
 models/				- base directory containing model files
 	__init__.py		- scans model directory for model classes
 	[model_name].py 	- defines model
-run.py				- main file training, evaluation and encoding
+run.py				- main file evokes training, evaluation and encoding
 train_model.py			- training function	
 utils.py			- losses, RegScheduler, util functions
 ```
