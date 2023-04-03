@@ -189,7 +189,7 @@ We provide examplary inputs of each file in the following:
 To train a model run `run.py` providing the dataset you want to train on. This is done by adding the flag `--dataset_train [dataset_name]` 
 
 
- which invoces the training loop and will perform evaluation after each training epoch. The number of batch update steps that make up an epoch are defined in `run.py` in the function `train`, alsongside other parameters such as `evaluate_every`, etc..
+ which invoces the training loop and will perform evaluation after each training epoch. The number of batch update steps that make up an epoch are defined in `train_model.py` alsongside other parameters such as `evaluate_every`, etc..
 
 Note, the trainer will by default train with half precision (fp16). Use the flag `--no_fp16` to train with full floating point precision. 
 
