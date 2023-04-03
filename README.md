@@ -2,11 +2,6 @@
 
 This library supports training, evaluation and encoding (indexing) with various neural state-of-the-art transformer-based IR models in python.
 
-All operations are carried out by making use of the `run.py` script.
-
-
-
-
 
 ## Library Structure:
 ```
