@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch
 from bert_tf import BERT_TF, BERT_TF_Config
 import time 
+import datetime
 import numpy as np 
 from idcm import IDCM_InferenceOnly
 class MarginMSELoss(nn.Module):
@@ -23,6 +24,8 @@ class MarginMSELoss(nn.Module):
         return loss
 
 
+def print_message(s):
+    print("[{}] {}".format(datetime.datetime.utcnow().strftime("%b %d, %H:%M:%S"), s), flush=True)
 
 def mean_pooling(token_embeddings, mask):
     token_embeddings = token_embeddings.masked_fill(~mask[..., None].bool(), 0.)
@@ -477,38 +480,6 @@ def get_model(model_name, checkpoint=None, **kwargs):
             encoded_docs = features['encoded_docs'][index]
             emb_queries = model(**encoded_queries.to('cuda')).last_hidden_state[:,0,:]
             emb_docs = model(**encoded_docs.to('cuda')).last_hidden_state[:,0,:]
-            #emb_queries_av = mean_pooling(emb_queries, encoded_queries['attention_mask'])
-            #emb_docs_av = mean_pooling(emb_docs, encoded_docs['attention_mask'])
-            #scores = torch.bmm(emb_queries_av.unsqueeze(1), emb_docs_av.unsqueeze(-1)).squeeze()
-            scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
-            return_dict = {}
-            return_dict['scores'] = scores
-            return return_dict
-
-
-    elif 'cocondenser' == model_name:
-        model_name = 'Luyu/co-condenser-marco-retriever' 
-        tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = AutoModel.from_pretrained(model_name)
-        encoding = 'bi'
-
-        def get_scores(model, features, index):
-
-            encoded_queries = features['encoded_queries']
-            encoded_docs = features['encoded_docs'][index]
-            emb_queries = model(**encoded_queries.to('cuda')).last_hidden_state[:,0,:]
-            emb_docs = model(**encoded_docs.to('cuda')).last_hidden_state[:,0,:]
-            #emb_queries_av = mean_pooling(emb_queries, encoded_queries['attention_mask'])
-            #emb_docs_av = mean_pooling(emb_docs, encoded_docs['attention_mask'])
-            #scores = torch.bmm(emb_queries_av.unsqueeze(1), emb_docs_av.unsqueeze(-1)).squeeze()
-            scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
-            return_dict = {}
-            return_dict['scores'] = scores
-            return return_dict
-
-            return scores
-
-    elif 'tasb' == model_name:
         model_name = "sebastian-hofstaetter/distilbert-dot-tas_b-b256-msmarco"
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = AutoModel.from_pretrained(model_name)
@@ -532,7 +503,7 @@ def get_model(model_name, checkpoint=None, **kwargs):
         encoding = 'bi'
 
 
-        def get_scores(model, features, index, save_hidden_states=False):
+        def get_scores(model, features, index):
             encoded_queries = features['encoded_queries']
             encoded_docs = features['encoded_docs'][index]
 
@@ -577,10 +548,9 @@ def get_model(model_name, checkpoint=None, **kwargs):
 
     if checkpoint != None:
         print('loading from checkpoint', checkpoint)
-        #model = AutoModelForSequenceClassification.from_pretrained(checkpoint)
-        model = Splade.from_pretrained(checkpoint)
+        model = AutoModelForSequenceClassification.from_pretrained(checkpoint)
+        #model = AutoModel.from_pretrained(checkpoint)
     return model, tokenizer, get_scores, encoding, prepend_type
-
 
 
 

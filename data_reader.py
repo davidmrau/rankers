@@ -166,9 +166,7 @@ class DataReader(torch.utils.data.IterableDataset):
                             features['meta'].append([cols[self.qrel_columns['doc']], cols[self.qrel_columns['query']]])
                             batch_queries.append(q)
                             batch_docs.append(ds)
-                    
                     yield self.prepare_input(features, batch_queries, batch_docs)
-
     def prepare_input(self, features, batch_queries, batch_docs): 
         doc_ids = [el[0] for el in features['meta']]
         if self.model_type == 'bi':
