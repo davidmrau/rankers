@@ -112,9 +112,9 @@ Example testing the `CrossEncoder` on the Nist 2020 passage retrieval task `2020
 python3 run.py \
 	--model 'CrossEncoder' \
 	--dataset '2020_pass' \
-	--max_inp_len 128 \
+	--max_inp_len 512 \
 	--mb_size_test 4096 \
-	--out_folder '/scratch-shared/draugpu/eval/'
+	--exp_folder '/experiments/folder/'
 ```
 
 ### Adding a new Test Dataset:
@@ -197,7 +197,7 @@ python3 run.py \
 	--dataset_train 'pass' \
 	--dataset_test '2020_pass'
 	--model 'CrossEncoder' \
-	--exp_folder 'experiments' \
+	--exp_folder 'experiments/folder/' \
 	--mb_size_train 512 \
 	--mb_size_test 1024 \
 	--learning_rate 0.000003 \
@@ -255,6 +255,37 @@ We provide examplary inputs of each file in the following:
 ...
 ```
 
+
+
+## Encode 
+
+Example encoding `/path/to/file.tsv` using the  `CrossEncoder`. 
+
+```
+python3 run.py \
+	--model 'CrossEncoder' \
+	--encode '/path/to/file.tsv' \
+	--max_inp_len 512 \
+	--mb_size_test 4096 \
+	--exp_folder 'experiments/folder'
+```
+
+This will save embeddings as numpy arrays in a dict under `/experimers/folder/file.tsv.encoded.p` with the format:
+
+```
+{
+	"doc_id_1": numpy.ndarray(embedding_doc_id_1),
+	"doc_id_1": numpy.ndarray(embedding_doc_id_2),
+	"doc_id_1": numpy.ndarray(embedding_doc_id_3),
+	...
+}
+```
+
+
+
+
+
+To encode 
 
 ## Models 
 
