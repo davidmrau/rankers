@@ -114,7 +114,7 @@ python3 run.py \
 	--dataset_test '2020_pass' \
 	--max_inp_len 512 \
 	--mb_size_test 4096 \
-	--exp_folder '/experiments/folder/'
+	--exp_dir '/experiments/folder/'
 ```
 
 ### Adding a new Test Dataset:
@@ -197,7 +197,7 @@ python3 run.py \
 	--dataset_train 'pass' \
 	--dataset_test '2020_pass'
 	--model 'CrossEncoder' \
-	--exp_folder 'experiments/folder/' \
+	--exp_dir 'experiments/folder/' \
 	--mb_size_train 512 \
 	--mb_size_test 1024 \
 	--learning_rate 0.000003 \
@@ -267,7 +267,7 @@ python3 run.py \
 	--encode '/path/to/file.tsv' \
 	--max_inp_len 512 \
 	--mb_size_test 4096 \
-	--exp_folder 'experiments/folder'
+	--exp_dir 'experiments/folder'
 ```
 
 This will save embeddings as numpy arrays in a dict under `/experimers/folder/file.tsv.encoded.p` with the format:
