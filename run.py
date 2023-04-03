@@ -163,6 +163,7 @@ if args.no_pos_emb:
 optimizer = AdamW(filter(lambda p: p.requires_grad, ranker.model.parameters()), lr=args.learning_rate, weight_decay=0.01)
 scheduler = get_linear_schedule_with_warmup(optimizer=optimizer, num_warmup_steps=6000, num_training_steps=150000)
 scaler = torch.cuda.amp.GradScaler(enabled=not args.no_fp16)
+reg = RegWeightScheduler(args.aloss_scalar, 5000)
 
 
 
@@ -172,7 +173,6 @@ if ranker.type == 'cross':
     criterion = torch.nn.CrossEntropyLoss()
 elif ranker.type == 'bi':
     criterion = torch.nn.MarginRankingLoss(margin=1)
-    reg = RegWeightScheduler(args.aloss_scalar, 5000)
     #logsoftmax = torch.nn.LogSoftmax(dim=1)
 if args.mse_loss:
     criterion = MarginMSELoss()
@@ -180,7 +180,7 @@ if args.mse_loss:
 
 
 if args.dataset_train:
-    train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scaler, scheduler, writer, model_dir, num_epochs=args.num_epochs, aloss_scalar=args.aloss_scalar, aloss=args.aloss, fp16=not args.no_fp16)
+    train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scaler, scheduler, reg, writer, model_dir, num_epochs=args.num_epochs, aloss_scalar=args.aloss_scalar, aloss=args.aloss, fp16=not args.no_fp16)
 if args.encode:
     encode(ranker, args.encode, dataloader_encode, model_dir)
 if args.dataset_test:
