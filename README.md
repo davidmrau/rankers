@@ -14,6 +14,7 @@ data_reader.py			- data_loader taking care of the pre-processing, read files ite
 datasets.json			- defines datasets and file paths 
 decode.py			- decoding function
 eval_model.py			- evaluation function
+examples/			- example files
 file_interface.py		- reads files into abstract class 
 metrics.py 			- evaluation with trec_eval
 models/				- base directory containing model files
@@ -106,13 +107,9 @@ Implemented datasets are `2019_pass,2019_doc` ,
 `robust_100_callan`,
 `robust_100_kmeans`.
 
-Example testing the `Cross
+Example testing the `CrossEncoder` on the Nist 2020 passage retrieval task `2020_test`: 
 
-
-
-r` on the Nist 2020 passage retrieval task `2020_test`: 
-
-```
+```python
 python3 run.py \
 	--model 'CrossEncoder' \
 	--dataset_test '2020_pass' \
@@ -196,7 +193,7 @@ Note, the trainer will by default train with half precision (fp16). Use the flag
 
 This example trains a `CrossEncoder` defined in `models/cross_encoder.py` on the passage training dataset (`pass`) defined in `dataset.json` and evaluates the model in between the epochs on the NIST 2020 passage dataset (`2020_pass`).
 
-```
+```python
 python3 run.py \
 	--dataset_train 'pass' \
 	--dataset_test '2020_pass'
@@ -239,7 +236,6 @@ We provide examplary inputs of each file in the following:
 527862	1505983	2975302
 984152	2304924	3372067
 ...
-...
 ```
 
 `queries`:
@@ -265,10 +261,10 @@ We provide examplary inputs of each file in the following:
 
 Example encoding `/path/to/file.tsv` using the  `CrossEncoder`. 
 
-```
+```python
 python3 run.py \
 	--model 'CrossEncoder' \
-	--encode 'exmples/example_doc.tsv' \
+	--encode 'exmples/example_docs.tsv' \
 	--max_inp_len 512 \
 	--mb_size_test 128 \
 	--exp_dir 'experiments/folder'
