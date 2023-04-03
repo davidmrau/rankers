@@ -5,7 +5,7 @@ from torch import nn as nn
 import time
 
 
-class DUOBert()
+class DUOBert():
 
     def __init__(self, kwargs):
         model_name = 'bert-base-uncased'

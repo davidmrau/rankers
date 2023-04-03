@@ -5,7 +5,7 @@ from torch import nn as nn
 import time
 
 
-class IDCM()
+class IDCM():
 
     def __init__(self, kwargs):
         self.type = 'cross'

@@ -2,7 +2,7 @@
 # Set job requirements
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:4
-#SBATCH --time=1:00:00
+#SBATCH --time=6:00:00
 #SBATCH --mem=100G
 #SBATCH --exclusive
 ##SBATCH --ntasks=1

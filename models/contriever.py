@@ -5,7 +5,7 @@ from torch import nn as nn
 import time
 
 
-class Contriever()
+class Contriever():
 
     def __init__(self, kwargs):
         model_name = 'facebook/contriever-msmarco'

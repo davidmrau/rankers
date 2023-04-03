@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from transformers import BertModel, BertConfig, PretrainedConfig, PreTrainedModel, AutoNModelForMaskedLM, AutoTokenizer
+from transformers import BertModel, BertConfig, PretrainedConfig, PreTrainedModel, AutoModelForMaskedLM, AutoTokenizer
 from transformers.models.bert.modeling_bert import BertOnlyMLMHead
 from models.biencoder_base import BiEncoderBase
 

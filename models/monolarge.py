@@ -5,7 +5,7 @@ from torch import nn as nn
 import time
 
 
-class MonoLarge()
+class MonoLarge():
 
     def __init__(self, kwargs):
         self.type = 'bi'
@@ -16,11 +16,11 @@ class MonoLarge()
     
     def get_scores(self, features, index):
 
-	encoded_queries = features['encoded_queries']
-	encoded_docs = features['encoded_docs'][index]
-	emb_queries = self.model(**encoded_queries.to('cuda')).last_hidden_state[:,0,:]
-	emb_docs = self.model(**encoded_docs.to('cuda')).last_hidden_state[:,0,:]
-	scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
+        encoded_queries = features['encoded_queries']
+        encoded_docs = features['encoded_docs'][index]
+        emb_queries = self.model(**encoded_queries.to('cuda')).last_hidden_state[:,0,:]
+        emb_docs = self.model(**encoded_docs.to('cuda')).last_hidden_state[:,0,:]
+        scores = torch.bmm(emb_queries.unsqueeze(1), emb_docs.unsqueeze(-1)).squeeze()
         #finish = (time.time() - start)
         return_dict = {}
         return_dict['scores'] = scores

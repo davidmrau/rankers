@@ -1,5 +1,5 @@
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-from crossencoder_base import CrossEncoderBase
+from models.crossencoder_base import CrossEncoderBase
 class BowBert(CrossEncoderBase):
 
     def __init__(self, kwargs):

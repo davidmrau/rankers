@@ -4,7 +4,7 @@ QREL=data/robust_test/qrels.robust2004.txt
 #QREL=data/msmarco/2020qrels-pass.txt
 
 MAP=`./trec_eval  $QREL $1 -m all_trec  | grep -w -E 'map'| awk '{print $3}'`
-RECIP=`./trec_eval $QREL $1 -m all_trec | grep -w -E 'recip_rank' | awk '{print $3}'` 
+RECIP=`./trec_eval $QREL $1 -m all_trec -M 10 | grep -w -E 'recip_rank' | awk '{print $3}'` 
 RECALL=`./trec_eval $QREL $1 -m all_trec | grep -w -E 'recall_30' | awk '{print $3}'`
 BPREF=`./trec_eval $QREL $1 -m all_trec | grep -w -E 'bpref' | awk '{print $3}'`
 
@@ -23,8 +23,10 @@ MAP=`deci $MAP`
 RECIP=`deci $RECIP`
 RECALL=`deci $RECALL`
 BPREF=`deci $BPREF`
-echo $NDCG " & " $MAP " & " $RECALL " & " $BPREF \\\\  
-#echo $NDCG " & " $MAP " & " $RECIP " & " $RECALL " & " $BPREF \\\\  
+echo NDCG MAP MRR@10, Recall@30 BPREF 
+#echo $NDCG " & " $MAP " & " $RECALL " & " $BPREF \\\\  
+#echo $NDCG " & " $RECIP " & " $MAP " & " $RECALL " & " $BPREF \\\\  
+echo $NDCG " & " $MAP " & " $RECALL \\\\  
 
 
 

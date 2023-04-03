@@ -4,7 +4,6 @@ data
 project
 *.swn
 *.swp
-models
 data_interpolation
 __pycache__
 fairseq
