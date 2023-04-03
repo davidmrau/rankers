@@ -10,19 +10,18 @@ All operations are carried out by making use of the `run.py` script.
 
 ## Library Structure:
 ```
-run.py				- main file training, evaluation and encoding
-train_model.py			- training function
-eval_model.py			- evaluation function
-decode.py			- decoding function
 data_reader.py			- data_loader taking care of the pre-processing, read files iteratively (without loading them into memory)
-utils.py			- losses, RegScheduler, util functions
+datasets.json			- defines datasets and file paths 
+decode.py			- decoding function
+eval_model.py			- evaluation function
 file_interface.py		- reads files into abstract class 
 metrics.py 			- evaluation with trec_eval
-datasets.json			- defines datasets and file paths 
 models/				- base directory containing model files
 	__init__.py		- scans model directory for model classes
 	[model_name].py 	- defines model
-
+run.py				- main file training, evaluation and encoding
+train_model.py			- training function	
+utils.py			- losses, RegScheduler, util functions
 ```
 
 ## Flags 
@@ -30,24 +29,22 @@ We list all parameter flags with their description:
 
 
 ```
-usage: run.py [-h] --model MODEL --exp_dir EXP_DIR
-              [--dataset_test {2019_pass,2019_doc,2020_pass,2020_doc,2021_pass,2021_doc,2022_doc,clueweb,robust,robust_100_callan,robust_100_kmeans}]
-              [--dataset_train {pass,doc,doc_tfidf}] [--encode ENCODE] [--add_to_dir ADD_TO_DIR] [--no_fp16]
-              [--mb_size_test MB_SIZE_TEST] [--num_epochs NUM_EPOCHS] [--max_inp_len MAX_INP_LEN]
-              [--max_q_len MAX_Q_LEN] [--run RUN] [--mb_size_train MB_SIZE_TRAIN] [--single_gpu]
-              [--eval_metric EVAL_METRIC] [--learning_rate LEARNING_RATE] [--checkpoint CHECKPOINT]
-              [--truncation_side {left,right}] [--continue_line CONTINUE_LINE] [--save_last_hidden]
-              [--aloss_scalar ALOSS_SCALAR] [--aloss] [--tf_embeds] [--sparse_dim SPARSE_DIM] [--no_pos_emb]
-              [--shuffle] [--sort] [--eval_strategy {first_p,last_p,max_p}] [--keep_q] [--drop_q]
-              [--preserve_q] [--mse_loss] [--rand_passage]
+usage: run.py [-h] --model
+              {Bert,Bigbird,BowBert,Contriever,CrossEncoder,CrossEncoder2,DistilDot,DUOBert,Electra,IDCM,LongformerQA,Longformer,MiniLM12,MiniLM6,MonoLarge,nboostCrossEncoder,SentenceBert,ShuffleBert,SortBert,SparseBert,SpladeCocondenserEnsembleDistil,TinyBert}
+              --exp_dir EXP_DIR [--dataset_test {2019_pass,2019_doc,2020_pass,2020_doc,2021_pass,2021_doc,2022_doc,clueweb,robust,robust_100_callan,robust_100_kmeans}]
+              [--dataset_train {pass,doc,doc_tfidf}] [--encode ENCODE] [--add_to_dir ADD_TO_DIR] [--no_fp16] [--mb_size_test MB_SIZE_TEST] [--num_epochs NUM_EPOCHS] [--max_inp_len MAX_INP_LEN]
+              [--max_q_len MAX_Q_LEN] [--run RUN] [--mb_size_train MB_SIZE_TRAIN] [--single_gpu] [--eval_metric EVAL_METRIC] [--learning_rate LEARNING_RATE] [--checkpoint CHECKPOINT]
+              [--truncation_side {left,right}] [--continue_line CONTINUE_LINE] [--save_last_hidden] [--aloss_scalar ALOSS_SCALAR] [--aloss] [--tf_embeds] [--sparse_dim SPARSE_DIM] [--no_pos_emb]
+              [--shuffle] [--sort] [--eval_strategy {first_p,last_p,max_p}] [--keep_q] [--drop_q] [--preserve_q] [--mse_loss] [--rand_passage]
 
 options:
   -h, --help            show this help message and exit
-  --model MODEL         Model name defined in model.py
+  --model {Bert,Bigbird,BowBert,Contriever,CrossEncoder,CrossEncoder2,DistilDot,DUOBert,Electra,IDCM,LongformerQA,Longformer,MiniLM12,MiniLM6,MonoLarge,nboostCrossEncoder,SentenceBert,ShuffleBert,SortBert,SparseBert,SpladeCocondenserEnsembleDistil,TinyBert}
+                        Model name defined in model.py
   --exp_dir EXP_DIR     Base directory where files will be saved to.
   --dataset_test {2019_pass,2019_doc,2020_pass,2020_doc,2021_pass,2021_doc,2022_doc,clueweb,robust,robust_100_callan,robust_100_kmeans}
                         Test dataset name defined in dataset.json
-  --dataset_train {pass,doc}
+  --dataset_train {pass,doc,doc_tfidf}
                         Train dataset name defined in dataset.json
   --encode ENCODE       Path to file to encode. Format "qid did ".
   --add_to_dir ADD_TO_DIR
@@ -109,7 +106,11 @@ Implemented datasets are `2019_pass,2019_doc` ,
 `robust_100_callan`,
 `robust_100_kmeans`.
 
-Example testing the `CrossEncoder` on the Nist 2020 passage retrieval task `2020_test`: 
+Example testing the `Cross
+
+
+
+r` on the Nist 2020 passage retrieval task `2020_test`: 
 
 ```
 python3 run.py \
@@ -260,14 +261,14 @@ We provide examplary inputs of each file in the following:
 
 
 
-## Encode 
+## Encoding
 
 Example encoding `/path/to/file.tsv` using the  `CrossEncoder`. 
 
 ```
 python3 run.py \
 	--model 'CrossEncoder' \
-	--encode '/path/to/file.tsv' \
+	--encode 'exmples/example_doc.tsv' \
 	--max_inp_len 512 \
 	--mb_size_test 128 \
 	--exp_dir 'experiments/folder'
@@ -284,15 +285,20 @@ This will save embeddings as numpy arrays in a dict under `/experimers/folder/fi
 }
 ```
 
+The document to be decoded should be in the following format: 
 
-
-
-
-To encode 
+```
+121352	define extreme
+634306	what does chattel mean on credit history
+920825	what was the great leap forward brainly
+...
+```
 
 ## Models 
 
-All models are defined in the folder `models/`. The file `models/__init__.py` will automatically scan all python files (`*.py`) and import all (model) classes defined in `models/[model_name.py]`. The models can then be used by running:
+Currently models `Bert`, `Bigbird`, `BowBert`, `Contriever`, `CrossEncoder`, `CrossEncoder2`, `DistilDot`, `DUOBert`, `Electra`, `IDCM`, `LongformerQA`, `Longformer`, `MiniLM12`, `MiniLM6`, `MonoLarge`, `nboostCrossEncoder`, `SentenceBert`, `ShuffleBert`, `SortBert`, `SparseBert`, `SpladeCocondenserEnsembleDistil`, and `TinyBert` are implemented. 
+
+All models are defined in the folder `models/`. The file `models/__init__.py` will automatically read all  python files (`*.py`) and import all (model) classes defined in `models/[model_name.py]`. The models can then be used by running:
 
 `python3 run.py --model [ModelClassName]`
 
