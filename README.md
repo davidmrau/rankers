@@ -252,7 +252,7 @@ Example encoding `examples/docs.tsv` using the  `CrossEncoder`.
 
 ```python
 python3 run.py \
-	--model 'CrossEncoder' \
+	--model 'SparseBert' \
 	--encode 'examples/docs.tsv' \
 	--max_inp_len 512 \
 	--mb_size_test 128 \
