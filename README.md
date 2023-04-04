@@ -26,21 +26,14 @@ We list all parameter flags with their description:
 
 ```
 usage: run.py [-h] --model
-              {Bert,Bigbird,BowBert,Contriever,CrossEncoder,CrossEncoder2,DistilDot,DUOBert,Electra,IDCM,LongformerQA,Longformer,MiniLM12,MiniLM6,MonoLarge,nboostCrossEncoder,SentenceBert,ShuffleBert,SortBert,SparseBert,SpladeCocondenserEnsembleDistil,TinyBert}
-              --exp_dir EXP_DIR [--dataset_test {2019_pass,2019_doc,2020_pass,2020_doc,2021_pass,2021_doc,2022_doc,clueweb,robust,robust_100_callan,robust_100_kmeans}]
-              [--dataset_train {pass,doc,doc_tfidf}] [--encode ENCODE] [--add_to_dir ADD_TO_DIR] [--no_fp16] [--mb_size_test MB_SIZE_TEST] [--num_epochs NUM_EPOCHS] [--max_inp_len MAX_INP_LEN]
-              [--max_q_len MAX_Q_LEN] [--run RUN] [--mb_size_train MB_SIZE_TRAIN] [--single_gpu] [--eval_metric EVAL_METRIC] [--learning_rate LEARNING_RATE] [--checkpoint CHECKPOINT]
-              [--truncation_side {left,right}] [--continue_line CONTINUE_LINE] [--save_last_hidden] [--aloss_scalar ALOSS_SCALAR] [--aloss] [--tf_embeds] [--sparse_dim SPARSE_DIM] [--no_pos_emb]
-              [--shuffle] [--sort] [--eval_strategy {first_p,last_p,max_p}] [--keep_q] [--drop_q] [--preserve_q] [--mse_loss] [--rand_passage]
-
 options:
   -h, --help            show this help message and exit
   --model {Bert,Bigbird,BowBert,Contriever,CrossEncoder,CrossEncoder2,DistilDot,DUOBert,Electra,IDCM,LongformerQA,Longformer,MiniLM12,MiniLM6,MonoLarge,nboostCrossEncoder,SentenceBert,ShuffleBert,SortBert,SparseBert,SpladeCocondenserEnsembleDistil,TinyBert}
                         Model name defined in model.py
   --exp_dir EXP_DIR     Base directory where files will be saved to.
-  --dataset_test {2019_pass,2019_doc,2020_pass,2020_doc,2021_pass,2021_doc,2022_doc,clueweb,robust,robust_100_callan,robust_100_kmeans}
+  --dataset_test {example, 2019_pass,2019_doc,2020_pass,2020_doc,2021_pass,2021_doc,2022_doc,clueweb,robust,robust_100_callan,robust_100_kmeans}
                         Test dataset name defined in dataset.json
-  --dataset_train {pass,doc,doc_tfidf}
+  --dataset_train {example, pass,doc,doc_tfidf}
                         Train dataset name defined in dataset.json
   --encode ENCODE       Path to file to encode. Format "qid did ".
   --add_to_dir ADD_TO_DIR
@@ -92,7 +85,9 @@ options:
 ## Evaluation 
 To evaluate a model run `run.py` providing the dataset that you want to be used with the flag `--dataset_test [dataset_name]`. 
 
-Implemented datasets are `2019_pass,2019_doc` ,
+Implemented datasets are 
+`example`,
+`2019_pass,2019_doc` ,
 `2020_pass`,`2020_doc`,
 `2021_pass`,
 `2021_doc`,
@@ -102,20 +97,20 @@ Implemented datasets are `2019_pass,2019_doc` ,
 `robust_100_callan`,
 `robust_100_kmeans`.
 
-Example testing the `CrossEncoder` on the Nist 2020 passage retrieval task `2020_test`: 
+Example testing the `CrossEncoder` on the `example` dataset: 
 
 ```python
 python3 run.py \
 	--model 'CrossEncoder' \
-	--dataset_test '2020_pass' \
+	--dataset_test 'example' \
 	--max_inp_len 512 \
 	--mb_size_test 128 \
-	--exp_dir '/experiments/folder/'
+	--exp_dir '/tmp/example/'
 ```
 
 ### Adding a new Test Dataset:
 
-New datasets with their respective file paths can be added in `datasets.json` and subsequently be loaded using `--dataset_test new_dataset`. Test Datasets follow the format:
+New datasets with their respective file paths can be added in `datasets.json` and subsequently be loaded using `--dataset_test new_dataset`. The dataset name also needs to be added to the choices argument list in `run.py` to the flag `--datasets_test`.  In our example case this would be `new_dataset`. Test Datasets follow the format:
 
 ```
 {
@@ -185,14 +180,14 @@ To train a model run `run.py` providing the dataset you want to train on. This i
 
 Note, the trainer will by default train with half precision (fp16). Use the flag `--no_fp16` to train with full floating point precision. 
 
-This example trains a `CrossEncoder` defined in `models/cross_encoder.py` on the passage training dataset (`pass`) defined in `dataset.json` and evaluates the model in between the epochs on the NIST 2020 passage dataset (`2020_pass`).
+This example trains a `CrossEncoder` defined in `models/cross_encoder.py` on the example training dataset (`example`) defined in `dataset.json` and evaluates the model in between the epochs on the `example` datasetset.
 
 ```python
 python3 run.py \
-	--dataset_train 'pass' \
-	--dataset_test '2020_pass'
+	--dataset_train 'example' \
+	--dataset_test 'example' \
 	--model 'CrossEncoder' \
-	--exp_dir 'experiments/folder/' \
+	--exp_dir '/tmp/example/' \
 	--mb_size_train 128 \
 	--mb_size_test 128 \
 	--learning_rate 0.000003 \
@@ -202,7 +197,8 @@ python3 run.py \
 
 ### Adding a new Training Dataset:
 
-New datasets with their respective file paths can be added in `datasets.json` and subsequently be loaded using `--dataset_train new_dataset`. Training Datsets follow the format:
+New datasets with their respective file paths can be added in `datasets.json` and subsequently be loaded using `--dataset_train new_dataset`. The dataset name also needs to be added to the choices argument list in `run.py` to the flag `--datasets_train`. In our example case this would be `new_dataset`.
+Training Datsets follow the format:
 
 ```
 {
@@ -252,15 +248,15 @@ We provide examplary inputs of each file in the following:
 
 ## Encoding
 
-Example encoding `examples/example_docs.tsv` using the  `CrossEncoder`. 
+Example encoding `examples/docs.tsv` using the  `CrossEncoder`. 
 
 ```python
 python3 run.py \
 	--model 'CrossEncoder' \
-	--encode 'examples/example_docs.tsv' \
+	--encode 'examples/docs.tsv' \
 	--max_inp_len 512 \
 	--mb_size_test 128 \
-	--exp_dir '/tmp/experiments_folder'
+	--exp_dir '/tmp/example/'
 ```
 
 This will save embeddings as numpy arrays in a dict under `/tmp/experiments_folder/example_docs.tsv.encoded.p` with the format:
@@ -326,7 +322,7 @@ class ModelClassName():
 
 - `get_scores`: Wrapper around the models forward and returns bare scores for Cross-Encoders or an embedding for Bi-Encoders
 
-
+The model class name also needs to be added to the choices argument list in `run.py` to the flag `--model` in our example case this would be `ModelClassName`.
 
 
 
