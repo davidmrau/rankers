@@ -31,7 +31,6 @@ parser.add_argument("--mb_size_test", type=int, default=128, help='Test batch si
 parser.add_argument("--num_epochs", type=int, default=10, help='Number of training epochs.')
 parser.add_argument("--max_inp_len", type=int, default=512, help='Max. total input length.')
 parser.add_argument("--max_q_len", type=int, default=None, help='Max. Query length. ')
-parser.add_argument("--run", type=str, default=None)
 parser.add_argument("--mb_size_train", type=int, default=1024, help='Train batch size.')
 parser.add_argument("--single_gpu", action='store_true', help='Limit training to a single gpu.')
 parser.add_argument("--eval_metric", default='ndcg_cut_10', help='Evaluation Metric.')
