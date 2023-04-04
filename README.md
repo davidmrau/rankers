@@ -92,7 +92,9 @@ options:
 ## Evaluation 
 To evaluate a model run `run.py` providing the dataset that you want to be used with the flag `--dataset_test [dataset_name]`. 
 
-Implemented datasets are `2019_pass,2019_doc` ,
+Implemented datasets are 
+`example`,
+`2019_pass,2019_doc` ,
 `2020_pass`,`2020_doc`,
 `2021_pass`,
 `2021_doc`,
@@ -102,15 +104,15 @@ Implemented datasets are `2019_pass,2019_doc` ,
 `robust_100_callan`,
 `robust_100_kmeans`.
 
-Example testing the `CrossEncoder` on the Nist 2020 passage retrieval task `2020_test`: 
+Example testing the `CrossEncoder` on the `example` dataset: 
 
 ```python
 python3 run.py \
 	--model 'CrossEncoder' \
-	--dataset_test '2020_pass' \
+	--dataset_test 'example' \
 	--max_inp_len 512 \
 	--mb_size_test 128 \
-	--exp_dir '/experiments/folder/'
+	--exp_dir '/tmp/example/'
 ```
 
 ### Adding a new Test Dataset:
@@ -185,14 +187,14 @@ To train a model run `run.py` providing the dataset you want to train on. This i
 
 Note, the trainer will by default train with half precision (fp16). Use the flag `--no_fp16` to train with full floating point precision. 
 
-This example trains a `CrossEncoder` defined in `models/cross_encoder.py` on the passage training dataset (`pass`) defined in `dataset.json` and evaluates the model in between the epochs on the NIST 2020 passage dataset (`2020_pass`).
+This example trains a `CrossEncoder` defined in `models/cross_encoder.py` on the example training dataset (`example`) defined in `dataset.json` and evaluates the model in between the epochs on the `example` datasetset.
 
 ```python
 python3 run.py \
-	--dataset_train 'pass' \
-	--dataset_test '2020_pass'
+	--dataset_train 'example' \
+	--dataset_test 'example'
 	--model 'CrossEncoder' \
-	--exp_dir 'experiments/folder/' \
+	--exp_dir '/tmp/example/' \
 	--mb_size_train 128 \
 	--mb_size_test 128 \
 	--learning_rate 0.000003 \
@@ -252,15 +254,15 @@ We provide examplary inputs of each file in the following:
 
 ## Encoding
 
-Example encoding `examples/example_docs.tsv` using the  `CrossEncoder`. 
+Example encoding `examples/docs.tsv` using the  `CrossEncoder`. 
 
 ```python
 python3 run.py \
 	--model 'CrossEncoder' \
-	--encode 'examples/example_docs.tsv' \
+	--encode 'examples/docs.tsv' \
 	--max_inp_len 512 \
 	--mb_size_test 128 \
-	--exp_dir '/tmp/experiments_folder'
+	--exp_dir '/tmp/example/'
 ```
 
 This will save embeddings as numpy arrays in a dict under `/tmp/experiments_folder/example_docs.tsv.encoded.p` with the format:
