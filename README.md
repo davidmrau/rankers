@@ -26,21 +26,14 @@ We list all parameter flags with their description:
 
 ```
 usage: run.py [-h] --model
-              {Bert,Bigbird,BowBert,Contriever,CrossEncoder,CrossEncoder2,DistilDot,DUOBert,Electra,IDCM,LongformerQA,Longformer,MiniLM12,MiniLM6,MonoLarge,nboostCrossEncoder,SentenceBert,ShuffleBert,SortBert,SparseBert,SpladeCocondenserEnsembleDistil,TinyBert}
-              --exp_dir EXP_DIR [--dataset_test {2019_pass,2019_doc,2020_pass,2020_doc,2021_pass,2021_doc,2022_doc,clueweb,robust,robust_100_callan,robust_100_kmeans}]
-              [--dataset_train {pass,doc,doc_tfidf}] [--encode ENCODE] [--add_to_dir ADD_TO_DIR] [--no_fp16] [--mb_size_test MB_SIZE_TEST] [--num_epochs NUM_EPOCHS] [--max_inp_len MAX_INP_LEN]
-              [--max_q_len MAX_Q_LEN] [--run RUN] [--mb_size_train MB_SIZE_TRAIN] [--single_gpu] [--eval_metric EVAL_METRIC] [--learning_rate LEARNING_RATE] [--checkpoint CHECKPOINT]
-              [--truncation_side {left,right}] [--continue_line CONTINUE_LINE] [--save_last_hidden] [--aloss_scalar ALOSS_SCALAR] [--aloss] [--tf_embeds] [--sparse_dim SPARSE_DIM] [--no_pos_emb]
-              [--shuffle] [--sort] [--eval_strategy {first_p,last_p,max_p}] [--keep_q] [--drop_q] [--preserve_q] [--mse_loss] [--rand_passage]
-
 options:
   -h, --help            show this help message and exit
   --model {Bert,Bigbird,BowBert,Contriever,CrossEncoder,CrossEncoder2,DistilDot,DUOBert,Electra,IDCM,LongformerQA,Longformer,MiniLM12,MiniLM6,MonoLarge,nboostCrossEncoder,SentenceBert,ShuffleBert,SortBert,SparseBert,SpladeCocondenserEnsembleDistil,TinyBert}
                         Model name defined in model.py
   --exp_dir EXP_DIR     Base directory where files will be saved to.
-  --dataset_test {2019_pass,2019_doc,2020_pass,2020_doc,2021_pass,2021_doc,2022_doc,clueweb,robust,robust_100_callan,robust_100_kmeans}
+  --dataset_test {example, 2019_pass,2019_doc,2020_pass,2020_doc,2021_pass,2021_doc,2022_doc,clueweb,robust,robust_100_callan,robust_100_kmeans}
                         Test dataset name defined in dataset.json
-  --dataset_train {pass,doc,doc_tfidf}
+  --dataset_train {example, pass,doc,doc_tfidf}
                         Train dataset name defined in dataset.json
   --encode ENCODE       Path to file to encode. Format "qid did ".
   --add_to_dir ADD_TO_DIR
