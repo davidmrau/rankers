@@ -55,6 +55,6 @@ class SparseBertModel(PreTrainedModel):
         #out, _ = torch.max(torch.log(1 + torch.relu(out)) * kwargs["attention_mask"].unsqueeze(-1), dim=1)
         #take cls
         out = out.last_hidden_state[:,0]
-        out = torch.log(1 + torch.relu(self.head(out.last_hidden_state[:,0])))
+        out = torch.log(1 + torch.relu(self.head(out)))
         return out
 
