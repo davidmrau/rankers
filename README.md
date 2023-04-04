@@ -335,6 +335,22 @@ class ModelClassName():
 The model class name also needs to be added to the choices argument list in `run.py` to the flag `--model` in our example case this would be `ModelClassName`.
 
 
+## Loading model checkpoints
+
+Model checkpoints can be conveniently loaded by adding the flag `--checkpoint [MODEL_DIR]` to the model directory. Models will be loaded using huggingface's .from_pretrained method. Therefore, only models that inherit from `PreTrainedModel` can be loaded. An example of how to build a custom model that is compatible can be found under `examples/custom_model.py`.
+
+An example of how to load a checkpoint:
+
+```python
+python3 run.py \
+	--model 'CrossEncoder' \
+	--dataset_test 'example' \
+	--max_inp_len 512 \
+	--mb_size_test 128 \
+	--exp_dir '/tmp/example/' \
+	--checkpoint '/folder/to/model/'
+```
+
 
 
 
