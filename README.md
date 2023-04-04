@@ -23,7 +23,7 @@ utils.py			- losses, RegScheduler, util functions
 
 ## Getting Started 
 
-First, install dependencies via pip install:
+First, install the dependencies via pip install:
 
 ```python
 pip3 install -r requirements.txt
@@ -104,6 +104,8 @@ Implemented datasets are
 `robust`,
 `robust_100_callan`,
 `robust_100_kmeans`.
+
+Please make sure all corresponding files (to be found in `datasets.json`) exist or to update the paths accordingly.
 
 Example testing the `CrossEncoder` on the `example` dataset: 
 
