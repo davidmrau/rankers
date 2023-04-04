@@ -19,7 +19,6 @@ def eval_model(ranker, dataloader_test, qrels_file, model_dir,  max_rank='1000',
             out = ranker.get_scores(features, index=0)
             timer = time.time()-start_time
             scores = out['scores']
-
             if 'time' in out: 
                 timer = out['time']
             timer = (timer*1000)/scores.shape[0]

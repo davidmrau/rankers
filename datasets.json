@@ -1,6 +1,12 @@
 {
     "train": {
 
+		"example": {
+			"triples": "examples/triples.tsv",
+			"queries": "examples/queries.tsv",
+			"docs": "examples/docs.tsv"
+		}, 
+
         "pass" : {
             "triples": "data/msmarco/qidpidtriples.train.full.tsv",
             "queries": "data/msmarco/queries.train.tsv",
@@ -22,6 +28,13 @@
     },
 
     "test": {
+
+		"example": {
+			"qrels": "examples/qrels.tsv",
+			"trec_run": "examples/trec_run.txt",
+			"queries": "examples/queries.tsv",
+			"docs": "examples/docs.tsv"
+		},
         
         "2019_pass" : {
             "qrels": "data/msmarco/2019qrels-pass.txt",

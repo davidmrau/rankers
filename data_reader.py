@@ -92,6 +92,7 @@ class DataReader(torch.utils.data.IterableDataset):
                                         self.reader.seek(0)
                                         print('Ignored Docs:', self.ignored_docs)
                                         self.done = True
+                                        yield self.prepare_input(features, batch_queries, batch_docs)
                                         return
                         cols = row.split()
                         q_id = cols[0]
