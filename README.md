@@ -110,7 +110,7 @@ python3 run.py \
 
 ### Adding a new Test Dataset:
 
-New datasets with their respective file paths can be added in `datasets.json` and subsequently be loaded using `--dataset_test new_dataset`. Test Datasets follow the format:
+New datasets with their respective file paths can be added in `datasets.json` and subsequently be loaded using `--dataset_test new_dataset`. The dataset name also needs to be added to the choices argument list in `run.py` to the flag `--datasets_test`.  In our example case this would be `new_dataset`. Test Datasets follow the format:
 
 ```
 {
@@ -197,7 +197,8 @@ python3 run.py \
 
 ### Adding a new Training Dataset:
 
-New datasets with their respective file paths can be added in `datasets.json` and subsequently be loaded using `--dataset_train new_dataset`. Training Datsets follow the format:
+New datasets with their respective file paths can be added in `datasets.json` and subsequently be loaded using `--dataset_train new_dataset`. The dataset name also needs to be added to the choices argument list in `run.py` to the flag `--datasets_train`. In our example case this would be `new_dataset`.
+Training Datsets follow the format:
 
 ```
 {
@@ -321,7 +322,7 @@ class ModelClassName():
 
 - `get_scores`: Wrapper around the models forward and returns bare scores for Cross-Encoders or an embedding for Bi-Encoders
 
-
+The model class name also needs to be added to the choices argument list in `run.py` to the flag `--model` in our example case this would be `ModelClassName`.
 
 
 
