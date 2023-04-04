@@ -47,7 +47,6 @@ options:
                         Max. total input length.
   --max_q_len MAX_Q_LEN
                         Max. Query length.
-  --run RUN
   --mb_size_train MB_SIZE_TRAIN
                         Train batch size.
   --single_gpu          Limit training to a single gpu.
