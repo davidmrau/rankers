@@ -318,7 +318,7 @@ class ModelClassName():
 
 - `tokenizer`: Tokenizer
 
-`model`: Model
+- `model`: Model
 
 - `get_scores`: Wrapper around the models forward and returns bare scores for Cross-Encoders or an embedding for Bi-Encoders
 
