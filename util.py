@@ -51,7 +51,6 @@ class RegWeightScheduler:
 
 
 
-#from bert_cat import BERT_Cat
 #from fairseq.models.roberta import RobertaModel
 #    elif 'roberta.shuffle' in model_name or 'roberta.base.orig' == model_name:
 #

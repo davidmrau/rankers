@@ -8,3 +8,9 @@ data_interpolation
 __pycache__
 fairseq
 bow-bert
+models/__pycache__
+experiments/
+checkpoints/
+runs/
+models/splade_max/
+models/qds_transformer/
