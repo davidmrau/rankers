@@ -37,7 +37,7 @@ We list all parameter flags with their description:
 usage: run.py [-h] --model
 options:
   -h, --help            show this help message and exit
-  --model {Bert,Bigbird,BowBert,Contriever,CrossEncoder,CrossEncoder2,DistilDot,DUOBert,Electra,IDCM,LongformerQA,Longformer,MiniLM12,MiniLM6,MonoLarge,nboostCrossEncoder,SentenceBert,ShuffleBert,SortBert,SparseBert,SpladeCocondenserEnsembleDistil,TinyBert}
+  --model {Bert,BiEncoder,Bigbird,BowBert,Contriever,CrossEncoder,CrossEncoder2,DistilDot,DUOBert,Electra,IDCM,LongformerQA,Longformer,MiniLM12,MiniLM6,MonoLarge,nboostCrossEncoder,SentenceBert,ShuffleBert,SortBert,SparseBert,SpladeCocondenserEnsembleDistil,TinyBert}
                         Model name defined in model.py
   --exp_dir EXP_DIR     Base directory where files will be saved to.
   --dataset_test {example, 2019_pass,2019_doc,2020_pass,2020_doc,2021_pass,2021_doc,2022_doc,clueweb,robust,robust_100_callan,robust_100_kmeans}
@@ -289,7 +289,7 @@ The document to be decoded should be in the following format:
 
 ## Models 
 
-Currently models `Bert`, `Bigbird`, `BowBert`, `Contriever`, `CrossEncoder`, `CrossEncoder2`, `DistilDot`, `DUOBert`, `Electra`, `IDCM`, `LongformerQA`, `Longformer`, `MiniLM12`, `MiniLM6`, `MonoLarge`, `nboostCrossEncoder`, `SentenceBert`, `ShuffleBert`, `SortBert`, `SparseBert`, `SpladeCocondenserEnsembleDistil`, and `TinyBert` are implemented. 
+Currently models `Bert`, `BiEncoder`, `Bigbird`, `BowBert`, `Contriever`, `CrossEncoder`, `CrossEncoder2`, `DistilDot`, `DUOBert`, `Electra`, `IDCM`, `LongformerQA`, `Longformer`, `MiniLM12`, `MiniLM6`, `MonoLarge`, `nboostCrossEncoder`, `SentenceBert`, `ShuffleBert`, `SortBert`, `SparseBert`, `SpladeCocondenserEnsembleDistil`, and `TinyBert` are implemented. 
 
 All models are defined in the folder `models/`. The file `models/__init__.py` will automatically read all  python files (`*.py`) and import all (model) classes defined in `models/[model_name.py]`. The models can then be used by running:
 
