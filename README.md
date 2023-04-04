@@ -21,6 +21,14 @@ train_model.py			- training function
 utils.py			- losses, RegScheduler, util functions
 ```
 
+## Getting Started 
+
+First, install dependencies via pip install:
+
+```python
+pip3 install -r requirements.txt
+```
+
 ## Flags 
 We list all parameter flags with their description:
 
