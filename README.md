@@ -185,7 +185,7 @@ This example trains a `CrossEncoder` defined in `models/cross_encoder.py` on the
 ```python
 python3 run.py \
 	--dataset_train 'example' \
-	--dataset_test 'example'
+	--dataset_test 'example' \
 	--model 'CrossEncoder' \
 	--exp_dir '/tmp/example/' \
 	--mb_size_train 128 \
