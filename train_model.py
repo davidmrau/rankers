@@ -2,7 +2,7 @@
 from performance_monitor import PerformanceMonitor
 import torch
 from tqdm import tqdm
-from util import print_message
+from util import print_message, PostingBalance, FLOPS
 from eval_model import eval_model
 
 
@@ -10,6 +10,7 @@ def train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion
     batch_iterator = iter(dataloader_train)
     total_examples_seen = 0
     ranker.model.train()
+    flops = PostingBalance()
     for ep_idx in range(num_epochs):
         print('epoch', ep_idx)
         # TRAINING
@@ -39,7 +40,10 @@ def train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion
                 else:
                     raise NotImplementedError()
                 if aloss:
-                    l1_loss = (out_1['l1_queries'] * aloss_scalar).mean() + (((out_1['l1_docs']) * aloss_scalar).mean() +  (out_2['l1_docs'] * aloss_scalar).mean() / 2)
+
+                    #l1_loss = (out_1['l1_queries']).mean() + (((out_1['l1_docs'])).mean() +  (out_2['l1_docs']).mean() / 2)
+                    l1_loss = flops(out_1['l1_queries']) + (  ( flops(out_1['l1_docs']) + flops(out_2['l1_docs']) ) / 2)
+                    l1_loss = l1_loss * aloss_scalar
                     l0_loss = (( out_1['l0_docs'] + out_2['l0_docs']) /2 )
                     used_dims = (( out_1['used_dims'] + out_2['used_dims']) /2 )
                     aloss_scalar = reg.step()

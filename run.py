@@ -15,13 +15,15 @@ from util import MarginMSELoss, RegWeightScheduler
 from train_model import train_model
 from eval_model import eval_model
 from encode import encode
+from decode import decode
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--model", type=str, required=True, help='Model name defined in model.py', choices=['Bert', 'BiEncoder', 'Bigbird', 'BowBert', 'Contriever', 'CrossEncoder', 'CrossEncoder2', 'DistilDot', 'DUOBert', 'Electra', 'IDCM', 'LongformerQA', 'Longformer', 'MiniLM12', 'MiniLM6', 'MonoLarge', 'nboostCrossEncoder', 'SentenceBert', 'ShuffleBert', 'SortBert', 'SparseBert', 'SpladeCocondenserEnsembleDistil', 'TinyBert'])
+parser.add_argument("--model", type=str, required=True, help='Model name defined in model.py', choices=['Bert', 'BiEncoder', 'Bigbird', 'BowBert', 'Contriever', 'CrossEncoder', 'CrossEncoder2', 'DistilDot', 'DUOBert', 'Electra', 'IDCM', 'LongformerQA', 'Longformer', 'MiniLM12', 'MiniLM6', 'MonoLarge', 'nboostCrossEncoder', 'SentenceBert', 'ShuffleBert', 'SortBert', 'SparseBert', 'SpladeCocondenserEnsembleDistil', 'SpladeCocondenserSelfDistil', 'TinyBert'])
 parser.add_argument("--exp_dir", type=str, required=True, help='Base directory where files will be saved to.' )
 parser.add_argument("--dataset_test", type=str, required=None, help='Test dataset name defined in dataset.json', choices=['example', '2019_pass', '2019_doc', '2020_pass', '2020_doc', '2021_pass', '2021_doc', '2022_doc', 'clueweb', 'robust', 'robust_100_callan', 'robust_100_kmeans'])
 parser.add_argument("--dataset_train", type=str, default=None, help='Train dataset name defined in dataset.json', choices=['example', 'pass', 'doc', 'doc_tfidf'])
-parser.add_argument("--encode", type=str, default=None, help='Path to file to encode. Format "qid\tdid\n".')
+parser.add_argument("--encode", type=str, default=None, help='Path to file to encode. Input Format "qid\tdid\n".')
+parser.add_argument("--decode", type=str, default=None, help='Path to file to decode (sparse representations). Input Format "qid\tdid\n".')
 
 
 
@@ -104,15 +106,21 @@ if args.dataset_train:
 
 
 # encode 
-if args.encode:
-    encode_filename = args.encode.split('/')[-1]
+if args.encode or args.decode:
+    if args.encode:
+        base = 'encode'
+        file_base = args.encode.split('/')[-1]
+        encode_file = args.encode
+    elif args.decode:
+        base = 'decode'
+        file_base = args.decode.split('/')[-1]
+        encode_file = args.decode
     if not args.checkpoint:
-        model_dir = f'{args.exp_dir}/encode/{args.model}_{encode_filename}'
+        model_dir = f'{args.exp_dir}/{base}/{args.model}_{file_base}'
     else:
         check = args.checkpoint
-        model_dir = '{args.checkpoint}/encode_{encode_filename}'
-    encode_file = args.encode
-    dataset = MSMARCO(args.encode, ranker.tokenizer, max_len=args.max_inp_len)
+        model_dir = '{args.checkpoint}/{base}_{file_base}'
+    dataset = MSMARCO(encode_file, ranker.tokenizer, max_len=args.max_inp_len)
     dataloader_encode = DataLoader(dataset, batch_size=args.mb_size_test, num_workers=1, collate_fn=dataset.collate_fn)
 
 if args.dataset_test:
@@ -181,5 +189,7 @@ if args.dataset_train:
     train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scaler, scheduler, reg, writer, model_dir, num_epochs=args.num_epochs, aloss_scalar=args.aloss_scalar, aloss=args.aloss, fp16=not args.no_fp16)
 if args.encode:
     encode(ranker, args.encode, dataloader_encode, model_dir)
+if args.decode:
+    decode(ranker, args.decode, dataloader_encode, model_dir)
 if args.dataset_test:
     eval_model(ranker, dataloader_test, qrels_file, model_dir, save_hidden_states=args.save_last_hidden, eval_strategy=args.eval_strategy, eval_metric=args.eval_metric)

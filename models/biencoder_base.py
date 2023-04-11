@@ -9,7 +9,7 @@ class BiEncoderBase():
         self.type = 'bi'
 
 
-    def encode_tokens(self, encoded_input):
+    def decode(self, encoded_input):
         logits = self.model(**encoded_input.to('cuda')).cpu().detach().numpy()
         weight_dicts = self.get_weight_dicts(logits)
         return weight_dicts
@@ -19,7 +19,7 @@ class BiEncoderBase():
         for aggregated_logits in batch_aggregated_logits:
             col = np.nonzero(aggregated_logits)[0]
             weights = aggregated_logits[col]
-            d = {reverse_voc[k]: float(v) for k, v in zip(list(col), list(weights))}
+            d = {self.reverse_voc[k]: float(v) for k, v in zip(list(col), list(weights))}
             to_return.append(d)
         return to_return
 

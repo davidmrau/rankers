@@ -15,6 +15,20 @@ class MarginMSELoss(nn.Module):
         loss = torch.mean(torch.pow((scores_pos - scores_neg) - (label_pos - label_neg),2))
         return loss
 
+class FLOPS:
+    def __call__(self, x):
+        return torch.sum(torch.mean(torch.abs(x), dim=0) ** 2)
+
+class PostingBalance:
+
+    def cv_squared(self, x):
+        eps = 1e-10
+        return x.float().var() / (x.float().mean()**2 + eps)
+
+    def __call__(self, x):
+        return self.cv_squared(x.sum(0))
+
+
 
 def print_message(s):
     print("[{}] {}".format(datetime.datetime.utcnow().strftime("%b %d, %H:%M:%S"), s), flush=True)
