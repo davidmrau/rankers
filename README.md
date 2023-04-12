@@ -37,14 +37,15 @@ We list all parameter flags with their description:
 usage: run.py [-h] --model
 options:
   -h, --help            show this help message and exit
-  --model {Bert,BiEncoder,Bigbird,BowBert,Contriever,CrossEncoder,CrossEncoder2,DistilDot,DUOBert,Electra,IDCM,LongformerQA,Longformer,MiniLM12,MiniLM6,MonoLarge,nboostCrossEncoder,SentenceBert,ShuffleBert,SortBert,SparseBert,SpladeCocondenserEnsembleDistil,TinyBert}
+  --model {Bert,BiEncoder,Bigbird,BowBert,Contriever,CrossEncoder,CrossEncoder2,DistilDot,DUOBert,Electra,IDCM,LongformerQA,Longformer,MiniLM12,MiniLM6,MonoLarge,nboostCrossEncoder,SentenceBert,ShuffleBert,SortBert,SparseBert,SpladeCocondenserEnsembleDistil,SpladeCocondenserSelfDistil,TinyBert}
                         Model name defined in model.py
   --exp_dir EXP_DIR     Base directory where files will be saved to.
   --dataset_test {example, 2019_pass,2019_doc,2020_pass,2020_doc,2021_pass,2021_doc,2022_doc,clueweb,robust,robust_100_callan,robust_100_kmeans}
                         Test dataset name defined in dataset.json
   --dataset_train {example, pass,doc,doc_tfidf}
                         Train dataset name defined in dataset.json
-  --encode ENCODE       Path to file to encode. Format "qid did ".
+  --decode DECODE       Path to file to decode. Format "qid did ".
+  --encode ENCODE       Path to file to encode. Input Format "qid did ".
   --add_to_dir ADD_TO_DIR
                         Will be appended to the default model directory
   --no_fp16             Disable half precision training.
@@ -258,7 +259,8 @@ We provide examplary inputs of each file in the following:
 
 ## Encoding
 
-Example encoding `examples/docs.tsv` using the  `CrossEncoder`. 
+Encoding in this case means feeding the document through the model and saving the resulting embedding as a numpy array.  
+The following example will encode documents in `examples/docs.tsv` using the  `CrossEncoder`. 
 
 ```python
 python3 run.py \
@@ -289,9 +291,43 @@ The document to be decoded should be in the following format:
 ...
 ```
 
+
+## Decoding
+
+Decoding in this case means feeding the document through a model with sparse (strictly positive valued) embeddings (matching the input vocabulary space) and decoding those embeddings into a document document representation. The term frequency in the resulting documents corresponds to the activation value in the sparse embedding space.
+The following example will decode documents in `examples/docs.tsv` using the  `CrossEncoder`. 
+
+```python
+python3 run.py \
+	--model 'SparseBert' \
+	--decode 'examples/docs.tsv' \
+	--max_inp_len 512 \
+	--mb_size_test 128 \
+	--exp_dir '/tmp/example/'
+```
+
+This will save a new documend according to the sparse embedding `/tmp/experiments_folder/example_docs.tsv.decoded.tsv` with the format:
+
+```
+doc_id_1	doc_1
+doc_id_2	doc_2
+doc_id_3	doc_3
+...
+
+```
+
+The document to be decoded should be in the following format: 
+
+```
+121352	define extreme
+634306	what does chattel mean on credit history
+920825	what was the great leap forward brainly
+...
+```
+
 ## Models 
 
-Currently models `Bert`, `BiEncoder`, `Bigbird`, `BowBert`, `Contriever`, `CrossEncoder`, `CrossEncoder2`, `DistilDot`, `DUOBert`, `Electra`, `IDCM`, `LongformerQA`, `Longformer`, `MiniLM12`, `MiniLM6`, `MonoLarge`, `nboostCrossEncoder`, `SentenceBert`, `ShuffleBert`, `SortBert`, `SparseBert`, `SpladeCocondenserEnsembleDistil`, and `TinyBert` are implemented. 
+Currently models `Bert`, `BiEncoder`, `Bigbird`, `BowBert`, `Contriever`, `CrossEncoder`, `CrossEncoder2`, `DistilDot`, `DUOBert`, `Electra`, `IDCM`, `LongformerQA`, `Longformer`, `MiniLM12`, `MiniLM6`, `MonoLarge`, `nboostCrossEncoder`, `SentenceBert`, `ShuffleBert`, `SortBert`, `SparseBert`, `SpladeCocondenserEnsembleDistil`, `SpladeCocondenserSelfDistil`,  and `TinyBert` are implemented. 
 
 All models are defined in the folder `models/`. The file `models/__init__.py` will automatically read all  python files (`*.py`) and import all (model) classes defined in `models/[model_name.py]`. The models can then be used by running:
 
