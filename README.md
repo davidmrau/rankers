@@ -33,7 +33,7 @@ pip3 install -r requirements.txt
 We list all parameter flags with their description:
 
 
-```python
+```
 usage: run.py [-h] --model
 options:
   -h, --help            show this help message and exit
@@ -140,7 +140,7 @@ We provide examplary inputs of each file in the following:
 
 `qrels`:
 
-```
+```tsv
 23849	0	1020327	2
 23849	0	1034183	3
 23849	0	1120730	0
@@ -151,7 +151,7 @@ We provide examplary inputs of each file in the following:
 
 `trec_run` (contains ids of documents and queries that will be scored):
 
-```
+```tsv
 1030303 Q0 1038342
 1030303 Q0 1154757
 1030303 Q0 1161432
@@ -161,7 +161,7 @@ We provide examplary inputs of each file in the following:
 
 `queries`:
 
-```
+```tsv
 121352	define extreme
 634306	what does chattel mean on credit history
 920825	what was the great leap forward brainly
@@ -169,8 +169,7 @@ We provide examplary inputs of each file in the following:
 ...
 ```
 `docs`:
-
-```
+```tsv
 0	The presence of communication amid scientific minds was equally important to the success of the Manhattan Project as scientific intellect was. The only cloud hanging over the impressive achievement of the atomic researchers and engineers is what their success truly meant; hundreds of thousands of innocent lives obliterated.
 1	The Manhattan Project and its atomic bomb helped bring an end to World War II. Its legacy of peaceful uses of atomic energy continues to have an impact on history and science.
 2	Essay on The Manhattan Project - The Manhattan Project The Manhattan Project was to see if making an atomic bomb possible. The success of this project would forever change the world forever making it known that something this powerful can be manmade.
@@ -223,7 +222,7 @@ We provide examplary inputs of each file in the following:
 
 `triples` (Query, Relevant Doc., Non-relevant Doc.):
 
-```
+```tsv
 662731	193249	2975302
 527862	1505983	2975302
 984152	2304924	3372067
@@ -232,7 +231,7 @@ We provide examplary inputs of each file in the following:
 
 `queries`:
 
-```
+```tsv
 121352	define extreme
 634306	what does chattel mean on credit history
 920825	what was the great leap forward brainly
@@ -240,7 +239,7 @@ We provide examplary inputs of each file in the following:
 ```
 `docs`:
 
-```
+```tsv
 0	The presence of communication amid scientific minds was equally important to the success of the Manhattan Project as scientific intellect was. The only cloud hanging over the impressive achievement of the atomic researchers and engineers is what their success truly meant; hundreds of thousands of innocent lives obliterated.
 1	The Manhattan Project and its atomic bomb helped bring an end to World War II. Its legacy of peaceful uses of atomic energy continues to have an impact on history and science.
 2	Essay on The Manhattan Project - The Manhattan Project The Manhattan Project was to see if making an atomic bomb possible. The success of this project would forever change the world forever making it known that something this powerful can be manmade.
@@ -276,7 +275,7 @@ This will save embeddings as numpy arrays in a dict under `/tmp/experiments_fold
 
 The document to be decoded should be in the following format: 
 
-```
+```tsv
 121352	define extreme
 634306	what does chattel mean on credit history
 920825	what was the great leap forward brainly
@@ -300,7 +299,7 @@ python3 run.py \
 
 This will save a new documend according to the sparse embedding `/tmp/experiments_folder/example_docs.tsv.decoded.tsv` with the format:
 
-```
+```tsv
 doc_id_1	doc_1
 doc_id_2	doc_2
 doc_id_3	doc_3
@@ -310,7 +309,7 @@ doc_id_3	doc_3
 
 The document to be decoded should be in the following format: 
 
-```
+```tsv
 121352	define extreme
 634306	what does chattel mean on credit history
 920825	what was the great leap forward brainly
