@@ -33,7 +33,7 @@ pip3 install -r requirements.txt
 We list all parameter flags with their description:
 
 
-```
+```python
 usage: run.py [-h] --model
 options:
   -h, --help            show this help message and exit
@@ -123,19 +123,15 @@ python3 run.py \
 
 New datasets with their respective file paths can be added in `datasets.json` and subsequently be loaded using `--dataset_test new_dataset`. The dataset name also needs to be added to the choices argument list in `run.py` to the flag `--datasets_test`.  In our example case this would be `new_dataset`. Test Datasets follow the format:
 
-```
+```json
 {
-	{ 'test':
-		'new_dataset': 
-			'qrels': 'qrels_path',
-			'trec_run': 'trec_run_path',
-			'queries': 'queries_path',
-			'docs': 'doc_path',
+	{ "test":
+		"new_dataset": 
+			"qrels": "qrels_path",
+			"trec_run": "trec_run_path",
+			"queries": "queries_path",
+			"docs": "doc_path",
 		
-	},
-	
-	{
-	...
 	}
 }
 ```
@@ -211,18 +207,14 @@ python3 run.py \
 New datasets with their respective file paths can be added in `datasets.json` and subsequently be loaded using `--dataset_train new_dataset`. The dataset name also needs to be added to the choices argument list in `run.py` to the flag `--datasets_train`. In our example case this would be `new_dataset`.
 Training Datsets follow the format:
 
-```
+```json
 {
-	{ 'train':
+	{ "train":
 		
-		'new_dataset': 
-			'triples': 'triples_path',
-			'queries': 'queries_path',
-			'docs': 'doc_path',
-	},
-
-	{
-	...
+		"new_dataset": 
+			"triples": "triples_path",
+			"queries": "queries_path",
+			"docs": "doc_path",
 	}
 }
 ```
