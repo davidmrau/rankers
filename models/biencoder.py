@@ -3,7 +3,7 @@ from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from models.biencoder_base import BiEncoderBase
 
 
-class Bert(BiEncoderBase):
+class BiEncoder(BiEncoderBase):
     def __init__(self, kwargs):
         super().__init__()
         self.kwargs = kwargs
