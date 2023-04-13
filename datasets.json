@@ -13,6 +13,11 @@
             "docs": "data/msmarco/collection.tsv"
         },
 
+        "pass_scores" : {
+            "triples": "data/msmarco/qidpidtriples.train.full.tsv",
+            "queries": "data/msmarco/queries.train.tsv",
+            "docs": "data/msmarco/docs.jsonl"
+        },
         "doc": {
             "triples": "data/msmarco_docs/triples.tsv",
             "queries": "data/msmarco_docs/msmarco-doctrain-queries.tsv",
@@ -41,6 +46,13 @@
             "trec_run": "data/msmarco/msmarco-passagetest2019-top1000_43_ranking_results_style.t",
             "queries": "data/msmarco/msmarco-test2019-queries_43.tsv",
             "docs": "data/msmarco/collection.tsv"
+
+        },
+        "2019_pass_scores" : {
+            "qrels": "data/msmarco/2019qrels-pass.txt",
+            "trec_run": "data/msmarco/msmarco-passagetest2019-top1000_43_ranking_results_style.t",
+            "queries": "data/msmarco/msmarco-test2019-queries_43.tsv",
+            "docs": "data/msmarco/docs.jsonl"
 
         },
         "2019_doc" : {

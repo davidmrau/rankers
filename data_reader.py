@@ -106,7 +106,10 @@ class DataReader(torch.utils.data.IterableDataset):
                         ds_ids = [  cols[self.doc_col + i].strip() for i in range(self.num_docs)]
 
                         # get doc content
-                        ds = [self.id2d[id_] for id_ in ds_ids]
+                        for id_ in ds_ids:
+                            importance_score, d = self.id2d[id_]
+                            ds.append(d) 
+                            importance_scores.append(importance_score)
                         # if any of the docs is None skip triplet   
                         if any(x is None for x in ds) or q is None:
                                 self.ignored_docs += 1
@@ -173,6 +176,14 @@ class DataReader(torch.utils.data.IterableDataset):
         if self.model_type == 'bi':
             batch_queries = self.tokenizer(batch_queries, padding=True, return_tensors="pt", truncation=True)
             batch_docs = [self.tokenizer([bd[i] for bd in batch_docs], padding=True, return_tensors="pt", truncation=True, max_length=self.max_inp_len) for i in range(self.num_docs)]
+            
+            for batch_doc in batch_docs:
+                position_ids = torch.zeros_like(batch_doc['input_ids'])
+                for i, d_scores in enumerate(importance_scores):
+                    for j, scores in enumerate(d_scores):
+                        position_ids[i][j+1] = scores
+                batch_doc['poisition_ids'] = position_ids
+                    
             features['encoded_queries'] = batch_queries 
             features['encoded_docs'] = batch_docs
             if not self.first_batch:
