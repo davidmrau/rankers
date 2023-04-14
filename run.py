@@ -22,7 +22,6 @@ parser.add_argument("--model", type=str, required=True, help="Model name defined
 parser.add_argument("--exp_dir", type=str, required=True, help='Base directory where files will be saved to.' )
 parser.add_argument("--dataset_test", type=str, required=None, help="Test dataset name defined in dataset.json: 'example', '2019_pass', '2019_doc', '2020_pass', '2020_pass_scores', '2020_doc', '2021_pass', '2021_doc', '2022_doc', 'clueweb', 'robust', 'robust_100_callan', 'robust_100_kmeans'.")
 parser.add_argument("--dataset_train", type=str, default=None, help="Train dataset name defined in dataset.json': 'example', 'pass', 'doc', 'doc_tfidf', 'pass_scores'.")
->>>>>>> Stashed changes
 parser.add_argument("--encode", type=str, default=None, help='Path to file to encode. Input Format "qid\tdid\n".')
 parser.add_argument("--decode", type=str, default=None, help='Path to file to decode (sparse representations). Input Format "qid\tdid\n".')
 
