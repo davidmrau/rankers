@@ -31,8 +31,8 @@ class BiEncoderBase():
         return_dict = {}
         encoded_queries = features['encoded_queries']
         encoded_docs = features['encoded_docs'][index]
-        emb_queries = self.model(**encoded_queries.to('cuda'))
-        emb_docs = self.model(**encoded_docs.to('cuda'))
+        emb_queries = self.model(**encoded_queries.to('cuda')).logits
+        emb_docs = self.model(**encoded_docs.to('cuda')).logits
         def l1(batch_rep):
             return torch.sum(torch.abs(batch_rep), dim=-1).mean()
 

@@ -4,11 +4,10 @@ import os
 import json
 import torch
 from torch.utils.data import DataLoader
-from file_interface import File
+from file_interface import File, FileJson
 from data_reader import DataReader, MSMARCO
 import argparse
 from tqdm import tqdm
-from torch.utils.tensorboard import SummaryWriter
 from transformers.optimization import AdamW, get_linear_schedule_with_warmup
 from models import *
 from util import MarginMSELoss, RegWeightScheduler
@@ -30,7 +29,7 @@ parser.add_argument("--decode", type=str, default=None, help='Path to file to de
 parser.add_argument("--add_to_dir", type=str, default='', help='Will be appended to the default model directory')
 parser.add_argument("--no_fp16", action='store_true', help='Disable half precision training.' )
 parser.add_argument("--mb_size_test", type=int, default=128, help='Test batch size.')
-parser.add_argument("--num_epochs", type=int, default=10, help='Number of training epochs.')
+parser.add_argument("--num_epochs", type=int, default=20, help='Number of training epochs.')
 parser.add_argument("--max_inp_len", type=int, default=512, help='Max. total input length.')
 parser.add_argument("--max_q_len", type=int, default=None, help='Max. Query length. ')
 parser.add_argument("--mb_size_train", type=int, default=1024, help='Train batch size.')
@@ -99,7 +98,7 @@ if args.dataset_train:
 
     #load file
     queries = File(queries_file, encoded=False)
-    docs = File(docs_file, encoded=False)
+    docs = FileJson(docs_file, encoded=False)
 
     dataset_train = DataReader(ranker.tokenizer, ranker.type, triples, 2, True, queries, docs, args.mb_size_train, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, has_label_scores=args.mse_loss, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, continue_line=args.continue_line)
     dataloader_train = DataLoader(dataset_train, batch_size=None, num_workers=1, pin_memory=False, collate_fn=dataset_train.collate_fn)
@@ -121,7 +120,7 @@ if args.encode or args.decode:
         check = args.checkpoint
         model_dir = '{args.checkpoint}/{base}_{file_base}'
     dataset = MSMARCO(encode_file, ranker.tokenizer, max_len=args.max_inp_len)
-    dataloader_encode = DataLoader(dataset, batch_size=args.mb_size_test, num_workers=1, collate_fn=dataset.collate_fn)
+    dataloader_encode = DataLoader(dataset, batch_size=args.mb_size_test, num_workers=0, collate_fn=dataset.collate_fn)
 
 if args.dataset_test:
     # if we are training then just save evaluation to training foler
@@ -137,10 +136,10 @@ if args.dataset_test:
     queries = File(queries_file, encoded=False)
     # if training and testing docs are the same and they are loaded already don't load them again
     if not args.dataset_train or docs_file != dataset['train'][args.dataset_train]['docs']:
-        docs = File(docs_file, encoded=False)
+        docs = FileJson(docs_file, encoded=False)
 
     dataset_test = DataReader(ranker.tokenizer, ranker.type, trec_run, 1, False, queries, docs, args.mb_size_test, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, sliding_window=args.eval_strategy!='first_p' and args.eval_strategy != 'last_p', rand_passage=args.rand_passage)
-    dataloader_test = DataLoader(dataset_test, batch_size=None, num_workers=0, pin_memory=False, collate_fn=dataset_test.collate_fn)
+    dataloader_test = DataLoader(dataset_test, batch_size=None, num_workers=1, pin_memory=False, collate_fn=dataset_test.collate_fn)
 # append add_to_dir
 model_dir += f'_{args.add_to_dir}'
 # print model directory
@@ -150,8 +149,6 @@ os.makedirs(model_dir, exist_ok=True)
 # write parameter flags to model folder
 with open(f'{model_dir}/args.json', 'wt') as f:
     json.dump(vars(args), f, indent=4)
-# initialize summary writer
-writer = SummaryWriter(f'{model_dir}/log/')
 
 
 # set position embeddings to zero if parameter is passed
@@ -186,7 +183,7 @@ if args.mse_loss:
 
 
 if args.dataset_train:
-    train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scaler, scheduler, reg, writer, model_dir, num_epochs=args.num_epochs, aloss_scalar=args.aloss_scalar, aloss=args.aloss, fp16=not args.no_fp16)
+    train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scaler, scheduler, reg, model_dir, num_epochs=args.num_epochs, aloss_scalar=args.aloss_scalar, aloss=args.aloss, fp16=not args.no_fp16)
 if args.encode:
     encode(ranker, args.encode, dataloader_encode, model_dir)
 if args.decode:

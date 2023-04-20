@@ -92,7 +92,7 @@ class DataReader(torch.utils.data.IterableDataset):
                                         self.reader.seek(0)
                                         print('Ignored Docs:', self.ignored_docs)
                                         self.done = True
-                                        yield self.prepare_input(features, batch_queries, batch_docs)
+                                        yield self.prepare_input(features, batch_queries, batch_docs, importance_scores)
                                         return
                         cols = row.split()
                         q_id = cols[0]
@@ -103,13 +103,18 @@ class DataReader(torch.utils.data.IterableDataset):
                         #    continue
                         q = self.id2q[cols[0]]
                         # get doc_ids       
-                        ds_ids = [  cols[self.doc_col + i].strip() for i in range(self.num_docs)]
-
+                        ds_ids = [  cols[self.doc_col + i].strip() for i in range(self.num_docs)]  
+                        ds = list()
+                        importance_scores = list()
                         # get doc content
                         for id_ in ds_ids:
-                            importance_score, d = self.id2d[id_]
+                            data = self.id2d[id_]
+                            if data is None:
+                                d, importance_score = None, None
+                            else:
+                                d, importance_score = self.id2d[id_] 
+                                importance_scores.append(importance_score)
                             ds.append(d) 
-                            importance_scores.append(importance_score)
                         # if any of the docs is None skip triplet   
                         if any(x is None for x in ds) or q is None:
                                 self.ignored_docs += 1
@@ -170,20 +175,27 @@ class DataReader(torch.utils.data.IterableDataset):
                             features['meta'].append([cols[self.qrel_columns['doc']], cols[self.qrel_columns['query']]])
                             batch_queries.append(q)
                             batch_docs.append(ds)
-                    yield self.prepare_input(features, batch_queries, batch_docs)
-    def prepare_input(self, features, batch_queries, batch_docs): 
+                    yield self.prepare_input(features, batch_queries, batch_docs, importance_scores)
+
+
+    def prepare_input(self, features, batch_queries, batch_docs, importance_scores): 
         doc_ids = [el[0] for el in features['meta']]
         if self.model_type == 'bi':
             batch_queries = self.tokenizer(batch_queries, padding=True, return_tensors="pt", truncation=True)
-            batch_docs = [self.tokenizer([bd[i] for bd in batch_docs], padding=True, return_tensors="pt", truncation=True, max_length=self.max_inp_len) for i in range(self.num_docs)]
-            
-            for batch_doc in batch_docs:
-                position_ids = torch.zeros_like(batch_doc['input_ids'])
-                for i, d_scores in enumerate(importance_scores):
-                    for j, scores in enumerate(d_scores):
-                        position_ids[i][j+1] = scores
-                batch_doc['poisition_ids'] = position_ids
-                    
+            batch_docs = [self.tokenizer([bd[i] for bd in batch_docs], padding=True, return_tensors="pt", truncation=True, max_length=self.max_inp_len, is_split_into_words=True) for i in range(self.num_docs)]
+            position_ids = {}
+            try:
+                for k, batch_doc in enumerate(batch_docs):
+                    position_ids = torch.zeros_like(batch_doc['input_ids'])
+                    for i, d_scores in enumerate(importance_scores):
+                        for j in range(min(position_ids.shape[i]-1, len(d_scores)-1)):
+                            position_ids[i][j+1] = d_scores[j]
+                    batch_docs[k].update({'position_ids': position_ids})
+            except:
+                print('error', position_ids.shape)
+                print('error', len(importance_scores))
+                print('error', importance_scores)
+
             features['encoded_queries'] = batch_queries 
             features['encoded_docs'] = batch_docs
             if not self.first_batch:
@@ -404,14 +416,17 @@ class DataReader(torch.utils.data.IterableDataset):
 
 
     def to_tensor(self, batch):
-        return {
+        d =  {
                 'input_ids': torch.tensor(batch['input_ids'], dtype=torch.long),
                 'tok_mask': torch.tensor(batch['tok_mask'], dtype=torch.float),
                 'sent_locs': torch.tensor(
                     batch['sent_locs'], dtype=torch.long),
                 'sent_mask': torch.tensor(
-                    batch['sent_mask'], dtype=torch.float)}
-
+                    batch['sent_mask'], dtype=torch.float),
+                'position_ids': torch.tensor(
+                batch['position_ids'], dtype=torch.float)
+                }
+        return d
 
             
 class MSMARCO(torch.utils.data.IterableDataset):
