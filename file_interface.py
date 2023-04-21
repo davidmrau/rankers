@@ -3,7 +3,7 @@ import gzip
 from tqdm import tqdm
 import subprocess
 class File():
-    def __init__(self, fname, encoded=True):
+    def __init__(self, fname, encoded=False):
         self.file = {}
         count_empty_docs = 0
         n_lines = int(subprocess.check_output(f"wc -l {fname}", shell=True).decode().split(' ')[0])
