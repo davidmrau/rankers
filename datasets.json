@@ -26,7 +26,7 @@
         "doc_plm" : {
             "triples": "data/msmarco_docs/triples.tsv",
             "queries": "data/msmarco_docs/msmarco-doctrain-queries.tsv",
-            "docs": "data/msmarco_docs/collection_docs.plm.json"
+            "docs": "data/msmarco_docs/collection_docs.plm.jsonl"
         }
 
     },
@@ -106,7 +106,7 @@
             "qrels": "data/msmarco_docs/2020qrels-docs.txt",
             "trec_run": "data/msmarco_docs/msmarco-doctest2020-top100_judged",
             "queries": "data/msmarco_docs/msmarco-test2020-queries.tsv",
-            "docs": "data/msmarco_docs/msmarco-docs.tsv_test_2020.tsv_plm.json"
+            "docs": "data/msmarco_docs/msmarco-docs.tsv_test_2020_plm.jsonl"
 
         },
         "2021_pass" : {
