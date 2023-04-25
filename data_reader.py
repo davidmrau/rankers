@@ -54,6 +54,12 @@ class DataReader(torch.utils.data.IterableDataset):
                                     break
             self.reader.seek(0)
             self.qrel_columns = qrel_columns
+
+    def norm(self, scores):
+        scores = np.array(scores)
+        return 10 * round(scores / max(scores), 1)
+        #return np.rint( 100 * (scores / max(scores)))
+
     def new_batch(self):
         features = {}
         if not self.has_label_scores:
@@ -66,7 +72,18 @@ class DataReader(torch.utils.data.IterableDataset):
         features['tf_embeds'] = list()
         batch_queries, batch_docs = list(), list()
         return features, batch_queries, batch_docs
-                
+        
+    def get_and_add_scores(self, docs):
+        score_docs = list()
+        for doc in docs:
+            d, importance_score = doc
+            importance_score = self.norm(importance_score)
+            new_doc = list()
+            for term, score in zip(d, importance_score):
+                new_doc.append(f'[unused{int(score)}]')
+                new_doc.append(term)
+            score_docs.append(' '.join(new_doc))
+        return score_docs
 
     def __iter__(self):
             self.ignored_docs = 0
@@ -104,16 +121,14 @@ class DataReader(torch.utils.data.IterableDataset):
                         q = self.id2q[cols[0]]
                         # get doc_ids       
                         ds_ids = [  cols[self.doc_col + i].strip() for i in range(self.num_docs)]
+                        ds = [ self.id2d[id_] for id_ in ds_ids] 
 
-                        # get doc content
-                        for id_ in ds_ids:
-                            importance_score, d = self.id2d[id_]
-                            ds.append(d) 
-                            importance_scores.append(importance_score)
                         # if any of the docs is None skip triplet   
                         if any(x is None for x in ds) or q is None:
                                 self.ignored_docs += 1
                                 continue
+
+                        ds = self.get_and_add_scores(ds)
 
                         if self.prepend_type:
                             q = ' [Q] ' + q

@@ -13,21 +13,20 @@
             "docs": "data/msmarco/collection.tsv"
         },
 
-        "pass_scores" : {
-            "triples": "data/msmarco/qidpidtriples.train.full.tsv",
-            "queries": "data/msmarco/queries.train.tsv",
-            "docs": "data/msmarco/docs.jsonl"
-        },
         "doc": {
             "triples": "data/msmarco_docs/triples.tsv",
             "queries": "data/msmarco_docs/msmarco-doctrain-queries.tsv",
             "docs": "data/msmarco_docs/msmarco-docs.in_triples.title+body.tsv"
-        },
-
+        },	
         "doc_tfidf" : {
             "triples": "data/msmarco_docs/triples.tsv",
             "queries": "data/msmarco_docs/msmarco-doctrain-queries.tsv",
             "docs": "data/msmarco_docs/msmarco-docs.in_triples.tfidf_decr.tsv"
+        },
+        "doc_plm" : {
+            "triples": "data/msmarco_docs/triples.tsv",
+            "queries": "data/msmarco_docs/msmarco-doctrain-queries.tsv",
+            "docs": "data/msmarco_docs/msmarco-docs.in_triples.title+body_plm.jsonl_sorted.jsonl"
         }
 
     },
@@ -48,13 +47,6 @@
             "docs": "data/msmarco/collection.tsv"
 
         },
-        "2019_pass_scores" : {
-            "qrels": "data/msmarco/2019qrels-pass.txt",
-            "trec_run": "data/msmarco/msmarco-passagetest2019-top1000_43_ranking_results_style.t",
-            "queries": "data/msmarco/msmarco-test2019-queries_43.tsv",
-            "docs": "data/msmarco/docs.jsonl"
-
-        },
         "2019_doc" : {
             "qrels": "data/msmarco_docs/2020qrels-docs.txt",
             "trec_run": "data/msmarco_docs/msmarco-doctest2020-top100_judged",
@@ -69,10 +61,43 @@
             "queries": "data/msmarco/msmarco-test2020-queries.tsv",
             "docs": "data/msmarco/collection.tsv"
         },
-
+        "2020_pass_top_100_plm" : {
+            "qrels": "data/msmarco/2020qrels-pass.txt",
+            "trec_run": "ranking_opt_doc/passages/run.msmarco-passage.bm25.topics.dl20.judged.txt_top_100",
+            "queries": "data/msmarco/msmarco-test2020-queries.tsv",
+            "docs": "ranking_opt_doc/passages/plm/collection.2020.tsv_plm_128.tsv"
+        },
+        "2020_pass_top_100" : {
+            "qrels": "data/msmarco/2020qrels-pass.txt",
+            "trec_run": "ranking_opt_doc/run.msmarco-passage.bm25.topics.dl20.judged.txt_top_100",
+            "queries": "data/msmarco/msmarco-test2020-queries.tsv",
+            "docs": "data/msmarco/collection.tsv"
+        },
         "2020_doc" : {
             "qrels": "data/msmarco_docs/2020qrels-docs.txt",
             "trec_run": "data/msmarco_docs/msmarco-doctest2020-top100_judged",
+            "queries": "data/msmarco_docs/msmarco-test2020-queries.tsv",
+            "docs": "data/msmarco_docs/msmarco-docs.tsv_test_2020.tsv"
+
+        },
+        "2020_doc_plm_512" : {
+            "qrels": "data/msmarco_docs/2020qrels-docs.txt",
+            "trec_run": "data/msmarco_docs/msmarco-doctest2020-top100_judged",
+            "queries": "data/msmarco_docs/msmarco-test2020-queries.tsv",
+            "docs": "ranking_opt_doc/docs/plm/msmarco-docs.tsv_test_2020.tsv_plm_512.tsv"
+        },
+
+
+        "2020_doc_minilm12plm64" : {
+            "qrels": "data/msmarco_docs/2020qrels-docs.txt",
+            "trec_run": "runs/2019_docs_tfidf_minilm6plm_64_eval/model_eval_ranking.trec_top_10",
+            "queries": "data/msmarco_docs/msmarco-test2020-queries.tsv",
+            "docs": "data/msmarco_docs/msmarco-docs.tsv_test_2020.tsv"
+
+        },
+        "2020_doc_bm25" : {
+            "qrels": "data/msmarco_docs/2020qrels-docs.txt",
+            "trec_run": "data/msmarco_docs/msmarco-doctest2020-top100_judged_top_10",
             "queries": "data/msmarco_docs/msmarco-test2020-queries.tsv",
             "docs": "data/msmarco_docs/msmarco-docs.tsv_test_2020.tsv"
 
@@ -81,7 +106,7 @@
             "qrels": "data/msmarco_docs/2020qrels-docs.txt",
             "trec_run": "data/msmarco_docs/msmarco-doctest2020-top100_judged",
             "queries": "data/msmarco_docs/msmarco-test2020-queries.tsv",
-            "docs": "data/msmarco_docs/msmarco-docs.tsv_test_2020.tsv_plm_512"
+            "docs": "data/msmarco_docs/msmarco-docs.tsv_test_2020_plm.jsonl_sorted.jsonl"
 
         },
         "2021_pass" : {
@@ -115,6 +140,20 @@
         "robust" : {
             "qrels": "data/robust_test/qrels.robust2004.txt",
             "trec_run": "data/robust_test/run.robust04.bm25.no_stem.trec_top_100",
+            "queries": "data/robust_test/04.testset_num_query_lower",
+            "docs": "data/robust/robust04_raw_docs.num_query"
+
+        },
+        "robust_bm25" : {
+            "qrels": "data/robust_test/qrels.robust2004.txt",
+            "trec_run": "data/robust_test/run.robust04.bm25.no_stem.trec_top_100_top_10",
+            "queries": "data/robust_test/04.testset_num_query_lower",
+            "docs": "data/robust/robust04_raw_docs.num_query"
+
+        },
+        "robust_minilm12plm64" : {
+            "qrels": "data/robust_test/qrels.robust2004.txt",
+            "trec_run": "runs//robust_minilm12plm_64_eval/model_eval_ranking.trec_top_10",
             "queries": "data/robust_test/04.testset_num_query_lower",
             "docs": "data/robust/robust04_raw_docs.num_query"
 
