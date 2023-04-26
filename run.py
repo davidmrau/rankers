@@ -75,7 +75,7 @@ ranker = globals()[args.model](vars(args))
 
 #if checkpoint load from_pretrained
 if args.checkpoint:
-    ranker.model.from_pretrained(args.checkpoint)
+    ranker.model = ranker.model.from_pretrained(args.checkpoint)
 
 
 # model to gpu
