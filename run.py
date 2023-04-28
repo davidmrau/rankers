@@ -170,7 +170,7 @@ if args.no_pos_emb:
     print('!!Removing positional Embeddings!!!')
 
 optimizer = AdamW(filter(lambda p: p.requires_grad, ranker.model.parameters()), lr=args.learning_rate, weight_decay=0.01)
-scheduler = get_linear_schedule_with_warmup(optimizer=optimizer, num_warmup_steps=6000, num_training_steps=150000)
+scheduler = get_linear_schedule_with_warmup(optimizer=optimizer, num_warmup_steps=1000, num_training_steps=150000)
 scaler = torch.cuda.amp.GradScaler(enabled=not args.no_fp16)
 reg = RegWeightScheduler(args.aloss_scalar, 5000)
 
