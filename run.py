@@ -18,10 +18,10 @@ from encode import encode
 from decode import decode
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--model", type=str, required=True, help='Model name defined in model.py', choices=['Bert', 'BiEncoder', 'Bigbird', 'BowBert', 'Contriever', 'CrossEncoder', 'CrossEncoder2', 'DistilDot', 'DUOBert', 'Electra', 'IDCM', 'LongformerQA', 'Longformer', 'MiniLM12', 'MiniLM6', 'MonoLarge', 'nboostCrossEncoder', 'SentenceBert', 'ShuffleBert', 'SortBert', 'SparseBert', 'SpladeCocondenserEnsembleDistil', 'SpladeCocondenserSelfDistil', 'TinyBert'])
-parser.add_argument("--exp_dir", type=str, required=True, help='Base directory where files will be saved to.' )
-parser.add_argument("--dataset_test", type=str, required=None, help='Test dataset name defined in dataset.json')
-parser.add_argument("--dataset_train", type=str, default=None, help='Train dataset name defined in dataset.json')
+parser.add_argument("--model", type=str, required=True, help="Model name defined in model.py: 'Bert', 'BiEncoder', 'Bigbird', 'BowBert', 'Contriever', 'CrossEncoder', 'CrossEncoder2', 'DistilDot', 'DUOBert', 'Electra', 'IDCM', 'LongformerQA', 'Longformer', 'MiniLM12', 'MiniLM6', 'MonoLarge', 'nboostCrossEncoder', 'SentenceBert', 'ShuffleBert', 'SortBert', 'SparseBert', 'SpladeCocondenserEnsembleDistil', 'SpladeCocondenserSelfDistil', 'TinyBert'.")
+parser.add_argument("--exp_dir", type=str, help='Base directory where files will be saved to.' )
+parser.add_argument("--dataset_test", type=str, required=None, help="Test dataset name defined in dataset.json: 'example', '2019_pass', '2019_doc', '2020_pass', '2020_pass_scores', '2020_doc', '2021_pass', '2021_doc', '2022_doc', 'clueweb', 'robust', 'robust_100_callan', 'robust_100_kmeans'.")
+parser.add_argument("--dataset_train", type=str, default=None, help="Train dataset name defined in dataset.json': 'example', 'pass', 'doc', 'doc_tfidf', 'pass_scores'.")
 parser.add_argument("--encode", type=str, default=None, help='Path to file to encode. Input Format "qid\tdid\n".')
 parser.add_argument("--decode", type=str, default=None, help='Path to file to decode (sparse representations). Input Format "qid\tdid\n".')
 
@@ -80,7 +80,7 @@ for i in range(1, 101):
 
 #if checkpoint load from_pretrained
 if args.checkpoint:
-    ranker.model.from_pretrained(args.checkpoint)
+    ranker.model = ranker.model.from_pretrained(args.checkpoint)
 
 
 # model to gpu
@@ -123,7 +123,6 @@ if args.encode or args.decode:
     if not args.checkpoint:
         model_dir = f'{args.exp_dir}/{base}/{args.model}_{file_base}'
     else:
-        check = args.checkpoint
         model_dir = '{args.checkpoint}/{base}_{file_base}'
     dataset = MSMARCO(encode_file, ranker.tokenizer, max_len=args.max_inp_len)
     dataloader_encode = DataLoader(dataset, batch_size=args.mb_size_test, num_workers=1, collate_fn=dataset.collate_fn)
@@ -132,6 +131,10 @@ if args.dataset_test:
     # if we are training then just save evaluation to training foler
     if not args.dataset_train:
         model_dir = f'{args.exp_dir}/test/{args.dataset_test}_{args.model}_max_inp_len_{args.max_inp_len}'
+
+    if args.checkpoint:
+        model_dir = f'{args.checkpoint}_test/{args.dataset_test}'
+
 #if we are not encoding then we carrying out testing by default
     docs_file = dataset['test'][args.dataset_test]['docs']
     queries_file = dataset['test'][args.dataset_test]['queries']
@@ -172,7 +175,7 @@ if args.no_pos_emb:
     print('!!Removing positional Embeddings!!!')
 
 optimizer = AdamW(filter(lambda p: p.requires_grad, ranker.model.parameters()), lr=args.learning_rate, weight_decay=0.01)
-scheduler = get_linear_schedule_with_warmup(optimizer=optimizer, num_warmup_steps=500, num_training_steps=150000)
+scheduler = get_linear_schedule_with_warmup(optimizer=optimizer, num_warmup_steps=1000, num_training_steps=150000)
 scaler = torch.cuda.amp.GradScaler(enabled=not args.no_fp16)
 reg = RegWeightScheduler(args.aloss_scalar, 5000)
 

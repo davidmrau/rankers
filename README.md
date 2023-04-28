@@ -37,14 +37,15 @@ We list all parameter flags with their description:
 usage: run.py [-h] --model
 options:
   -h, --help            show this help message and exit
-  --model {Bert,BiEncoder,Bigbird,BowBert,Contriever,CrossEncoder,CrossEncoder2,DistilDot,DUOBert,Electra,IDCM,LongformerQA,Longformer,MiniLM12,MiniLM6,MonoLarge,nboostCrossEncoder,SentenceBert,ShuffleBert,SortBert,SparseBert,SpladeCocondenserEnsembleDistil,TinyBert}
+  --model {Bert,BiEncoder,Bigbird,BowBert,Contriever,CrossEncoder,CrossEncoder2,DistilDot,DUOBert,Electra,IDCM,LongformerQA,Longformer,MiniLM12,MiniLM6,MonoLarge,nboostCrossEncoder,SentenceBert,ShuffleBert,SortBert,SparseBert,SpladeCocondenserEnsembleDistil,SpladeCocondenserSelfDistil,TinyBert}
                         Model name defined in model.py
   --exp_dir EXP_DIR     Base directory where files will be saved to.
   --dataset_test {example, 2019_pass,2019_doc,2020_pass,2020_doc,2021_pass,2021_doc,2022_doc,clueweb,robust,robust_100_callan,robust_100_kmeans}
                         Test dataset name defined in dataset.json
   --dataset_train {example, pass,doc,doc_tfidf}
                         Train dataset name defined in dataset.json
-  --encode ENCODE       Path to file to encode. Format "qid did ".
+  --decode DECODE       Path to file to decode. Format "qid did ".
+  --encode ENCODE       Path to file to encode. Input Format "qid did ".
   --add_to_dir ADD_TO_DIR
                         Will be appended to the default model directory
   --no_fp16             Disable half precision training.
@@ -120,21 +121,17 @@ python3 run.py \
 
 ### Adding a new Test Dataset:
 
-New datasets with their respective file paths can be added in `datasets.json` and subsequently be loaded using `--dataset_test new_dataset`. The dataset name also needs to be added to the choices argument list in `run.py` to the flag `--datasets_test`.  In our example case this would be `new_dataset`. Test Datasets follow the format:
+New datasets with their respective file paths can be added in `datasets.json` and subsequently be loaded using `--dataset_test new_dataset`. In our example case this would be `new_dataset`. Test Datasets follow the format:
 
-```
+```json
 {
-	{ 'test':
-		'new_dataset': 
-			'qrels': 'qrels_path',
-			'trec_run': 'trec_run_path',
-			'queries': 'queries_path',
-			'docs': 'doc_path',
+	{ "test":
+		"new_dataset": 
+			"qrels": "qrels_path",
+			"trec_run": "trec_run_path",
+			"queries": "queries_path",
+			"docs": "doc_path",
 		
-	},
-	
-	{
-	...
 	}
 }
 ```
@@ -143,7 +140,7 @@ We provide examplary inputs of each file in the following:
 
 `qrels`:
 
-```
+```tsv
 23849	0	1020327	2
 23849	0	1034183	3
 23849	0	1120730	0
@@ -154,7 +151,7 @@ We provide examplary inputs of each file in the following:
 
 `trec_run` (contains ids of documents and queries that will be scored):
 
-```
+```tsv
 1030303 Q0 1038342
 1030303 Q0 1154757
 1030303 Q0 1161432
@@ -164,7 +161,7 @@ We provide examplary inputs of each file in the following:
 
 `queries`:
 
-```
+```tsv
 121352	define extreme
 634306	what does chattel mean on credit history
 920825	what was the great leap forward brainly
@@ -172,8 +169,7 @@ We provide examplary inputs of each file in the following:
 ...
 ```
 `docs`:
-
-```
+```tsv
 0	The presence of communication amid scientific minds was equally important to the success of the Manhattan Project as scientific intellect was. The only cloud hanging over the impressive achievement of the atomic researchers and engineers is what their success truly meant; hundreds of thousands of innocent lives obliterated.
 1	The Manhattan Project and its atomic bomb helped bring an end to World War II. Its legacy of peaceful uses of atomic energy continues to have an impact on history and science.
 2	Essay on The Manhattan Project - The Manhattan Project The Manhattan Project was to see if making an atomic bomb possible. The success of this project would forever change the world forever making it known that something this powerful can be manmade.
@@ -207,21 +203,17 @@ python3 run.py \
 
 ### Adding a new Training Dataset:
 
-New datasets with their respective file paths can be added in `datasets.json` and subsequently be loaded using `--dataset_train new_dataset`. The dataset name also needs to be added to the choices argument list in `run.py` to the flag `--datasets_train`. In our example case this would be `new_dataset`.
+New datasets with their respective file paths can be added in `datasets.json` and subsequently be loaded using `--dataset_train new_dataset`. In our example case this would be `new_dataset`.
 Training Datsets follow the format:
 
-```
+```json
 {
-	{ 'train':
+	{ "train":
 		
-		'new_dataset': 
-			'triples': 'triples_path',
-			'queries': 'queries_path',
-			'docs': 'doc_path',
-	},
-
-	{
-	...
+		"new_dataset": 
+			"triples": "triples_path",
+			"queries": "queries_path",
+			"docs": "doc_path",
 	}
 }
 ```
@@ -230,7 +222,7 @@ We provide examplary inputs of each file in the following:
 
 `triples` (Query, Relevant Doc., Non-relevant Doc.):
 
-```
+```tsv
 662731	193249	2975302
 527862	1505983	2975302
 984152	2304924	3372067
@@ -239,7 +231,7 @@ We provide examplary inputs of each file in the following:
 
 `queries`:
 
-```
+```tsv
 121352	define extreme
 634306	what does chattel mean on credit history
 920825	what was the great leap forward brainly
@@ -247,7 +239,7 @@ We provide examplary inputs of each file in the following:
 ```
 `docs`:
 
-```
+```tsv
 0	The presence of communication amid scientific minds was equally important to the success of the Manhattan Project as scientific intellect was. The only cloud hanging over the impressive achievement of the atomic researchers and engineers is what their success truly meant; hundreds of thousands of innocent lives obliterated.
 1	The Manhattan Project and its atomic bomb helped bring an end to World War II. Its legacy of peaceful uses of atomic energy continues to have an impact on history and science.
 2	Essay on The Manhattan Project - The Manhattan Project The Manhattan Project was to see if making an atomic bomb possible. The success of this project would forever change the world forever making it known that something this powerful can be manmade.
@@ -258,7 +250,8 @@ We provide examplary inputs of each file in the following:
 
 ## Encoding
 
-Example encoding `examples/docs.tsv` using the  `CrossEncoder`. 
+Encoding in this case means feeding the document through the model and saving the resulting embedding as a numpy array.  
+The following example will encode documents in `examples/docs.tsv` using the  `CrossEncoder`. 
 
 ```python
 python3 run.py \
@@ -282,7 +275,41 @@ This will save embeddings as numpy arrays in a dict under `/tmp/experiments_fold
 
 The document to be decoded should be in the following format: 
 
+```tsv
+121352	define extreme
+634306	what does chattel mean on credit history
+920825	what was the great leap forward brainly
+...
 ```
+
+
+## Decoding
+
+Decoding in this case means feeding the document through a model with sparse (strictly positive valued) embeddings (matching the input vocabulary space) and decoding those embeddings into a document document representation. The term frequency in the resulting documents corresponds to the activation value in the sparse embedding space.
+The following example will decode documents in `examples/docs.tsv` using the  `CrossEncoder`. 
+
+```python
+python3 run.py \
+	--model 'SparseBert' \
+	--decode 'examples/docs.tsv' \
+	--max_inp_len 512 \
+	--mb_size_test 128 \
+	--exp_dir '/tmp/example/'
+```
+
+This will save a new documend according to the sparse embedding `/tmp/experiments_folder/example_docs.tsv.decoded.tsv` with the format:
+
+```tsv
+doc_id_1	doc_1
+doc_id_2	doc_2
+doc_id_3	doc_3
+...
+
+```
+
+The document to be decoded should be in the following format: 
+
+```tsv
 121352	define extreme
 634306	what does chattel mean on credit history
 920825	what was the great leap forward brainly
@@ -291,7 +318,7 @@ The document to be decoded should be in the following format:
 
 ## Models 
 
-Currently models `Bert`, `BiEncoder`, `Bigbird`, `BowBert`, `Contriever`, `CrossEncoder`, `CrossEncoder2`, `DistilDot`, `DUOBert`, `Electra`, `IDCM`, `LongformerQA`, `Longformer`, `MiniLM12`, `MiniLM6`, `MonoLarge`, `nboostCrossEncoder`, `SentenceBert`, `ShuffleBert`, `SortBert`, `SparseBert`, `SpladeCocondenserEnsembleDistil`, and `TinyBert` are implemented. 
+Currently models `Bert`, `BiEncoder`, `Bigbird`, `BowBert`, `Contriever`, `CrossEncoder`, `CrossEncoder2`, `DistilDot`, `DUOBert`, `Electra`, `IDCM`, `LongformerQA`, `Longformer`, `MiniLM12`, `MiniLM6`, `MonoLarge`, `nboostCrossEncoder`, `SentenceBert`, `ShuffleBert`, `SortBert`, `SparseBert`, `SpladeCocondenserEnsembleDistil`, `SpladeCocondenserSelfDistil`,  and `TinyBert` are implemented. 
 
 All models are defined in the folder `models/`. The file `models/__init__.py` will automatically read all  python files (`*.py`) and import all (model) classes defined in `models/[model_name.py]`. The models can then be used by running:
 
@@ -332,7 +359,6 @@ class ModelClassName():
 
 - `get_scores`: Wrapper around the models forward and returns bare scores for Cross-Encoders or an embedding for Bi-Encoders
 
-The model class name also needs to be added to the choices argument list in `run.py` to the flag `--model` in our example case this would be `ModelClassName`.
 
 
 ## Loading model checkpoints
