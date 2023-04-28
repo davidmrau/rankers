@@ -147,7 +147,7 @@
         "robust_plm" : {
             "qrels": "data/robust_test/qrels.robust2004.txt",
             "trec_run": "data/robust_test/run.robust04.bm25.no_stem.trec_top_100",
-            "queries": "data/robust_test/04.testset.description",
+            "queries": "data/robust_test/04.testset_num_query_lower",
             "docs": "data/robust/docs_plm.jsonl_sorted.test.jsonl"
 
         },
