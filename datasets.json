@@ -26,7 +26,7 @@
         "doc_plm" : {
             "triples": "data/msmarco_docs/triples.tsv",
             "queries": "data/msmarco_docs/msmarco-doctrain-queries.tsv",
-            "docs": "data/msmarco_docs/collection_docs.plm.jsonl"
+            "docs": "data/msmarco_docs/msmarco-docs.in_triples.title+body_plm.jsonl_sorted.jsonl"
         }
 
     },
@@ -106,7 +106,7 @@
             "qrels": "data/msmarco_docs/2020qrels-docs.txt",
             "trec_run": "data/msmarco_docs/msmarco-doctest2020-top100_judged",
             "queries": "data/msmarco_docs/msmarco-test2020-queries.tsv",
-            "docs": "data/msmarco_docs/msmarco-docs.tsv_test_2020_plm.jsonl"
+            "docs": "data/msmarco_docs/msmarco-docs.tsv_test_2020_plm.jsonl_sorted.jsonl"
 
         },
         "2021_pass" : {
@@ -142,6 +142,13 @@
             "trec_run": "data/robust_test/run.robust04.bm25.no_stem.trec_top_100",
             "queries": "data/robust_test/04.testset_num_query_lower",
             "docs": "data/robust/robust04_raw_docs.num_query"
+
+        },
+        "robust_plm" : {
+            "qrels": "data/robust_test/qrels.robust2004.txt",
+            "trec_run": "data/robust_test/run.robust04.bm25.no_stem.trec_top_100",
+            "queries": "data/robust_test/04.testset.description",
+            "docs": "data/robust/docs_plm.jsonl_sorted.test.jsonl"
 
         },
         "robust_bm25" : {
