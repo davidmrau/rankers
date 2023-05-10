@@ -57,7 +57,7 @@ class DataReader(torch.utils.data.IterableDataset):
 
     def norm(self, scores):
         scores = np.array(scores)
-        return 10 * round(scores / max(scores), 1)
+        return 10 * np.round(scores / max(scores), 1)
         #return np.rint( 100 * (scores / max(scores)))
 
     def new_batch(self):
@@ -80,7 +80,8 @@ class DataReader(torch.utils.data.IterableDataset):
             importance_score = self.norm(importance_score)
             new_doc = list()
             for term, score in zip(d, importance_score):
-                new_doc.append(f'[unused{int(score)}]')
+                #new_doc.append(f'[unused{int(score)}]')
+                new_doc.append(f'{int(score)}')
                 new_doc.append(term)
             score_docs.append(' '.join(new_doc))
         return score_docs
