@@ -57,7 +57,7 @@ class DataReader(torch.utils.data.IterableDataset):
 
     def norm(self, scores):
         scores = np.array(scores)
-        return 10 * round(scores / max(scores), 1)
+        return 10 * np.round(scores / max(scores), 1)
         #return np.rint( 100 * (scores / max(scores)))
 
     def new_batch(self):
@@ -70,9 +70,10 @@ class DataReader(torch.utils.data.IterableDataset):
         features['meta'] = list()
         features['encoded_input'] = list()
         features['tf_embeds'] = list()
+        features['scores'] = list()
         batch_queries, batch_docs = list(), list()
         return features, batch_queries, batch_docs
-        
+    
     def get_and_add_scores(self, docs):
         score_docs = list()
         for doc in docs:
@@ -80,10 +81,17 @@ class DataReader(torch.utils.data.IterableDataset):
             importance_score = self.norm(importance_score)
             new_doc = list()
             for term, score in zip(d, importance_score):
-                new_doc.append(f'[unused{int(score)}]')
-                new_doc.append(term)
-            score_docs.append(' '.join(new_doc))
+                #new_doc.append(f'[unused{int(score)}]')
+                new_doc.append(f'{int(score)}')
+                new_doc.append(str(term))
+            #score_docs.append(' '.join(new_doc))
+            score_docs.append(new_doc)
         return score_docs
+
+    def sort_after_scores(self, tokens, scores):
+        
+        sorted_idxs = np.argsort(scores)[::-1].astype(int)
+        return np.array(tokens)[sorted_idxs].tolist(), np.array(scores)[sorted_idxs].tolist()
 
     def __iter__(self):
             self.ignored_docs = 0
@@ -109,7 +117,7 @@ class DataReader(torch.utils.data.IterableDataset):
                                         self.reader.seek(0)
                                         print('Ignored Docs:', self.ignored_docs)
                                         self.done = True
-                                        yield self.prepare_input(features, batch_queries, batch_docs)
+                                        yield self.prepare_input(features, batch_queries, batch_docs, scores)
                                         return
                         cols = row.split()
                         q_id = cols[0]
@@ -121,14 +129,20 @@ class DataReader(torch.utils.data.IterableDataset):
                         q = self.id2q[cols[0]]
                         # get doc_ids       
                         ds_ids = [  cols[self.doc_col + i].strip() for i in range(self.num_docs)]
-                        ds = [ self.id2d[id_] for id_ in ds_ids] 
+                        ds, scores = list(), list()
+                        for id_ in ds_ids:
+                            ids, score = self.id2d[id_]
+                            #ids, score = self.sort_after_scores(ids, score)
+                            ds.append(ids)
+                            scores.append(score)
 
                         # if any of the docs is None skip triplet   
                         if any(x is None for x in ds) or q is None:
                                 self.ignored_docs += 1
                                 continue
 
-                        ds = self.get_and_add_scores(ds)
+                        #ds = self.get_and_add_scores(ds)
+                        
 
                         if self.prepend_type:
                             q = ' [Q] ' + q
@@ -185,8 +199,8 @@ class DataReader(torch.utils.data.IterableDataset):
                             features['meta'].append([cols[self.qrel_columns['doc']], cols[self.qrel_columns['query']]])
                             batch_queries.append(q)
                             batch_docs.append(ds)
-                    yield self.prepare_input(features, batch_queries, batch_docs)
-    def prepare_input(self, features, batch_queries, batch_docs): 
+                    yield self.prepare_input(features, batch_queries, batch_docs, scores)
+    def prepare_input(self, features, batch_queries, batch_docs, scores): 
         doc_ids = [el[0] for el in features['meta']]
         if self.model_type == 'bi':
             batch_queries = self.tokenizer(batch_queries, padding=True, return_tensors="pt", truncation=True)
@@ -215,6 +229,18 @@ class DataReader(torch.utils.data.IterableDataset):
             features['encoded_input'] = [self.tokenizer(batch_queries, [bd[i] for bd in batch_docs], padding=True, truncation='only_second', return_tensors='pt', return_token_type_ids=True, max_length=self.max_inp_len)  for i in range(self.num_docs)]
             if self.sort:
                 features['encoded_input'] = [ self.sort_fn(el) for  el in  features['encoded_input']]
+
+
+            for i in range(self.num_docs):
+                features['scores'].append(torch.zeros_like(features['encoded_input'][i]['token_type_ids']).float())
+                decreasing = torch.arange(features['encoded_input'][i]['token_type_ids'].shape[1], 0, -1)
+                decreasing_doc = features['encoded_input'][i]['token_type_ids'] * decreasing
+                starts_docs = torch.argmax(decreasing_doc, 1)
+                shape = features['scores'][i].shape
+                for j in range(shape[0]):
+                    end = min(len(scores[i]), (shape[1] - starts_docs[j]))
+                    features['scores'][i][j, starts_docs[j]: starts_docs[j]+end] = torch.FloatTensor([scores[i][:end]])
+
             if not self.first_batch:
                 #dids = [ el[1] for el in features['meta'3]
                 idxs = random.sample(range(len(doc_ids)), min(len(doc_ids), 3))
@@ -425,7 +451,7 @@ class DataReader(torch.utils.data.IterableDataset):
                 'sent_locs': torch.tensor(
                     batch['sent_locs'], dtype=torch.long),
                 'sent_mask': torch.tensor(
-                    batch['sent_mask'], dtype=torch.float)}
+                    batch['sent_mask'], dtype=torch.float), 'scores': torch.tensor(batch['scores'], dtype=torch.floar)}
 
 
             

@@ -8,7 +8,6 @@ from file_interface import File, FileJson
 from data_reader import DataReader, MSMARCO
 import argparse
 from tqdm import tqdm
-from torch.utils.tensorboard import SummaryWriter
 from transformers.optimization import AdamW, get_linear_schedule_with_warmup
 from models import *
 from util import MarginMSELoss, RegWeightScheduler
@@ -158,8 +157,6 @@ os.makedirs(model_dir, exist_ok=True)
 # write parameter flags to model folder
 with open(f'{model_dir}/args.json', 'wt') as f:
     json.dump(vars(args), f, indent=4)
-# initialize summary writer
-writer = SummaryWriter(f'{model_dir}/log/')
 
 
 # set position embeddings to zero if parameter is passed
@@ -194,7 +191,7 @@ if args.mse_loss:
 
 
 if args.dataset_train:
-    train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scaler, scheduler, reg, writer, model_dir, num_epochs=args.num_epochs, aloss_scalar=args.aloss_scalar, aloss=args.aloss, fp16=not args.no_fp16)
+    train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scaler, scheduler, reg, model_dir, num_epochs=args.num_epochs, aloss_scalar=args.aloss_scalar, aloss=args.aloss, fp16=not args.no_fp16)
 if args.encode:
     encode(ranker, args.encode, dataloader_encode, model_dir)
 if args.decode:

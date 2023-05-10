@@ -1,11 +1,16 @@
 #!/bin/bash
 # Set job requirements
-#SBATCH --partition=gpu
-#SBATCH --gres=gpu:4
-#SBATCH --time=6:00:00
+#SBATCH -p illc
+#SBATCH -A illc 
+#SBATCH --gpus=4
 #SBATCH --mem=100G
 #SBATCH --exclusive
-##SBATCH --ntasks=1
+#SBATCH --time=24:00:00
+
+
+
+
+
 
 source slurm_common.sh $1
 
