@@ -7,7 +7,7 @@ import numpy as np
 import pickle
 from util import print_message
 
-def eval_model(ranker, dataloader_test, qrels_file, model_dir,  max_rank='1000', eval_metric='ndcg_cut_10', suffix='', save_hidden_states=False, eval_strategy='first_p'):
+def eval_model(ranker, dataloader_test, qrels_file, model_dir,  max_rank='1000', eval_metric='ndcg_cut_10', suffix='', save_hidden_states=False, eval_strategy='first_p', wandb=None):
     ranker.model.eval()
     res_test = {}
     batch_latency = []
@@ -60,6 +60,8 @@ def eval_model(ranker, dataloader_test, qrels_file, model_dir,  max_rank='1000',
     test = Trec(eval_metric, 'trec_eval', qrels_file, max_rank, ranking_file_path=f'{model_dir}/ranking{suffix}')
     eval_val = test.score(sorted_scores, q_ids)
     print_message('model:{}, {}@{}:{}'.format("eval", eval_metric, max_rank, eval_val))
+    if wandb:
+        wandb.log({"eval_metric": eval_metric, 'max_rank': max_rank, 'eval': eval_val})
     if save_hidden_states:
         pickle.dump(last_hidden, open(f'{model_dir}/last_hidden.p', 'wb'))
     return eval_val

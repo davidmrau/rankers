@@ -1,5 +1,7 @@
 import warnings
 warnings.filterwarnings('ignore',category=FutureWarning)
+
+import wandb
 import os
 import json
 import torch
@@ -88,6 +90,8 @@ dataset = json.loads(open('datasets.json').read())
 
 # determine the name of the model directory
 
+wandb.login()
+wandb.init( project=args.exp_dir.split('/')[-1], config=args)
 # instantiate Data Reader
 if args.dataset_train:
     model_dir = f'{args.exp_dir}/train/{args.dataset_train}_{args.model}_{args.dataset_test}_bz_{args.mb_size_train}_lr_{args.learning_rate}_ep_{args.num_epochs}_max_inp_len_{args.max_inp_len}'
@@ -185,10 +189,10 @@ if args.mse_loss:
 
 
 if args.dataset_train:
-    train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scaler, scheduler, reg, model_dir, num_epochs=args.num_epochs, aloss_scalar=args.aloss_scalar, aloss=args.aloss, fp16=not args.no_fp16)
+    train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scaler, scheduler, reg, model_dir, num_epochs=args.num_epochs, aloss_scalar=args.aloss_scalar, aloss=args.aloss, fp16=not args.no_fp16, wandb=wandb)
 if args.encode:
     encode(ranker, args.encode, dataloader_encode, model_dir)
 if args.decode:
     decode(ranker, args.decode, dataloader_encode, model_dir)
 if args.dataset_test:
-    eval_model(ranker, dataloader_test, qrels_file, model_dir, save_hidden_states=args.save_last_hidden, eval_strategy=args.eval_strategy, eval_metric=args.eval_metric)
+    eval_model(ranker, dataloader_test, qrels_file, model_dir, save_hidden_states=args.save_last_hidden, eval_strategy=args.eval_strategy, eval_metric=args.eval_metric, wandb=wandb)

@@ -6,7 +6,7 @@ from util import print_message, PostingBalance, FLOPS
 from eval_model import eval_model
 
 
-def train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scaler, scheduler, reg, model_dir, num_epochs=40, epoch_size=1000, log_every=10, save_every=1, aloss=False, aloss_scalar=None, fp16=True):
+def train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scaler, scheduler, reg, model_dir, num_epochs=40, epoch_size=1000, log_every=10, save_every=1, aloss=False, aloss_scalar=None, fp16=True, wandb=None):
     batch_iterator = iter(dataloader_train)
     total_examples_seen = 0
     ranker.model.train()
@@ -65,11 +65,13 @@ def train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion
                 if mb_idx % log_every == 0:
                         print(f'MB {mb_idx + 1}/{epoch_size}')
                         print_message('examples:{}, train_loss:{:.6f}, l1_loss:{:.6f}, l0_loss:{:.2f}, used:{:.2f}'.format(total_examples_seen, train_loss, l1_loss, l0_loss, used_dims))
+                        if wandb:
+                            wandb.log({"train_loss": train_loss, "l1_loss": l1_loss, "l0_loss": l0_loss, "used": used_dims})
                 mb_idx += 1
 
         print_message('epoch:{}, av loss:{}'.format(ep_idx + 1, epoch_loss / (epoch_size) ))
 
-        eval_model(ranker, dataloader_test, qrels_file, model_dir, suffix=ep_idx+1)
+        eval_model(ranker, dataloader_test, qrels_file, model_dir, suffix=ep_idx+1, wandb=wandb)
 
         print('saving_model')
 
