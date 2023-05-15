@@ -29,12 +29,12 @@ def train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion
                 optimizer.zero_grad()
                 #if args.mse_loss:
                 #    train_loss = criterion(scores_doc_1, scores_doc_2, torch.tensor(features['labels_1'], device='cuda'), torch.tensor(features['labels_2'], device='cuda'))
-                if ranker.type == 'bi':
+                if 'bi' in ranker.type:
                     train_loss = criterion(scores_doc_1, scores_doc_2, features['labels'].to('cuda'))
                     #train_loss = logsoftmax(torch.cat([scores_doc_1.unsqueeze(1), scores_doc_2.unsqueeze(1)], dim=1))
                     #train_loss = torch.mean(-train_loss[0,:])
                     
-                elif ranker.type == 'cross':
+                elif 'cross' in ranker.type:
                     scores = torch.stack((scores_doc_2, scores_doc_1),1 )
                     train_loss = criterion(scores, features['labels'].long().to('cuda'))
                 else:

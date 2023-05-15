@@ -178,9 +178,9 @@ reg = RegWeightScheduler(args.aloss_scalar, 5000)
 
 
 # select losses according to model architecture
-if ranker.type == 'cross':
+if 'cross' in ranker.type or 'cross-selector' == ranker.type:
     criterion = torch.nn.CrossEntropyLoss()
-elif ranker.type == 'bi':
+elif 'bi' in ranker.type:
     criterion = torch.nn.MarginRankingLoss(margin=1)
     #logsoftmax = torch.nn.LogSoftmax(dim=1)
 if args.mse_loss:

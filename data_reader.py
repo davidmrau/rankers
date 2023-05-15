@@ -170,8 +170,9 @@ class DataReader(torch.utils.data.IterableDataset):
                     yield self.prepare_input(features, batch_queries, batch_docs)
     def prepare_input(self, features, batch_queries, batch_docs): 
         doc_ids = [el[0] for el in features['meta']]
-        if self.model_type == 'bi':
-            batch_queries = self.tokenizer(batch_queries, padding=True, return_tensors="pt", truncation=True)
+        #if self.model_type == 'cross-selector' or self.model_type == 'bi':
+        if model.type == 'cross-selector' or 'bi' in model.type:
+            batch_queries = self.tokenizer(batch_queries, padding="max_length", return_tensors="pt", truncation=True, max_length=self.max_q_len)
             batch_docs = [self.tokenizer([bd[i] for bd in batch_docs], padding=True, return_tensors="pt", truncation=True, max_length=self.max_inp_len) for i in range(self.num_docs)]
             features['encoded_queries'] = batch_queries 
             features['encoded_docs'] = batch_docs
