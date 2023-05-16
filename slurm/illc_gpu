@@ -3,7 +3,7 @@
 #SBATCH -p illc
 #SBATCH -A illc 
 #SBATCH --gpus=4
-#SBATCH --mem=200G
+#SBATCH --mem=100G
 #SBATCH --exclusive
 #SBATCH --time=24:00:00
 
