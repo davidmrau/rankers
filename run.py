@@ -80,7 +80,7 @@ for i in range(1, 101):
 #if checkpoint load from_pretrained
 if args.checkpoint:
     ranker.model = ranker.model.from_pretrained(args.checkpoint)
-
+    print(f'Loading ranker from checkpoint: {args.checkpoint}')
 
 # model to gpu
 ranker.model = ranker.model.to('cuda')
