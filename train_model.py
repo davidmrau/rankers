@@ -70,7 +70,7 @@ def train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion
 
         print_message('epoch:{}, av loss:{}'.format(ep_idx + 1, epoch_loss / (epoch_size) ))
 
-        eval_model(ranker, dataloader_test, qrels_file, model_dir, suffix=ep_idx)
+        eval_model(ranker, dataloader_test, qrels_file, model_dir, suffix=ep_idx+1)
 
         print('saving_model')
 

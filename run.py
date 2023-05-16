@@ -19,7 +19,7 @@ from decode import decode
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model", type=str, required=True, help='Model name defined in model.py', choices=['Bert', 'BiEncoder', 'Bigbird', 'BowBert', 'Contriever', 'CrossEncoder', 'CrossEncoder2', 'DistilDot', 'DUOBert', 'Electra', 'IDCM', 'LongformerQA', 'Longformer', 'MiniLM12', 'MiniLM6', 'MonoLarge', 'nboostCrossEncoder', 'SentenceBert', 'ShuffleBert', 'SortBert', 'SparseBert', 'SpladeCocondenserEnsembleDistil', 'SpladeCocondenserSelfDistil', 'TinyBert'])
-parser.add_argument("--exp_dir", type=str, required=True, help='Base directory where files will be saved to.' )
+parser.add_argument("--exp_dir", type=str, help='Base directory where files will be saved to.' )
 parser.add_argument("--dataset_test", type=str, required=None, help='Test dataset name defined in dataset.json')
 parser.add_argument("--dataset_train", type=str, default=None, help='Train dataset name defined in dataset.json')
 parser.add_argument("--encode", type=str, default=None, help='Path to file to encode. Input Format "qid\tdid\n".')
@@ -80,8 +80,8 @@ for i in range(1, 101):
 
 #if checkpoint load from_pretrained
 if args.checkpoint:
-    ranker.model.from_pretrained(args.checkpoint)
-
+    ranker.model = ranker.model.from_pretrained(args.checkpoint)
+    print(f'Loading ranker from checkpoint: {args.checkpoint}')
 
 # model to gpu
 ranker.model = ranker.model.to('cuda')
