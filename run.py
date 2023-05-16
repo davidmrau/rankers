@@ -47,6 +47,7 @@ parser.add_argument("--aloss_scalar", type=float, default=0.0001, help='Loss sca
 parser.add_argument("--aloss", action='store_true', help='Using auxilliary sparsity loss.')
 parser.add_argument("--tf_embeds", action='store_true', help='[Experimental] Add term frequencies to input embeddings.')
 parser.add_argument("--sparse_dim", type=int, default=10000, help='Dimensionality of the sparsity layer.')
+parser.add_argument("--num_terms", type=int, default=32, help='Reducing docs to num_terms tokens using the selector.')
 
 parser.add_argument("--no_pos_emb", action='store_true', help='[Experimental] Removes the position embedding.')
 parser.add_argument("--shuffle", action='store_true', help='[Experimental] Shuffles training and test tokens (after tokenization)')
@@ -189,7 +190,7 @@ if args.mse_loss:
 
 
 if args.dataset_train:
-    train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scaler, scheduler, reg, model_dir, num_epochs=args.num_epochs, aloss_scalar=args.aloss_scalar, aloss=args.aloss, fp16=not args.no_fp16, wandb=wandb)
+    train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scaler, scheduler, reg, model_dir, num_epochs=args.num_epochs, aloss_scalar=args.aloss_scalar, aloss=args.aloss, fp16=not args.no_fp16, wandb=wandb, epoch_size=1000)
 if args.encode:
     encode(ranker, args.encode, dataloader_encode, model_dir)
 if args.decode:

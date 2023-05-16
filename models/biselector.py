@@ -11,8 +11,7 @@ class BiSelector(BiEncoderBase):
         super().__init__()
         self.kwargs = kwargs
         self.tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased', truncation_side=kwargs['truncation_side'])
-        self.model = SelectorModel(SelectorModelConfig(num_terms=kwargs.num_terms)) 
-
+        self.model = SelectorModel(SelectorModelConfig(num_terms=kwargs['num_terms'])) 
     def get_scores(self, features, index):
         return_dict = {}
         encoded_queries = features['encoded_queries']
@@ -40,13 +39,14 @@ class BiSelector(BiEncoderBase):
         return return_dict
         
  
-
 class SelectorModelConfig(PretrainedConfig):
-    def __init__(self, num_terms, **kwargs):
-        super().__init__(**kwargs)
-	    model_type = 'SelectorModel'
-	    num_terms = num_terms
+    model_type = 'SelectorModel'
+    num_terms = None
 
+    def to_dict(self):
+        config_dict = super().to_dict()
+        config_dict['num_terms'] = self.num_terms
+        return config_dict
 
 class SelectorModel(PreTrainedModel):
     config_class  = SelectorModelConfig
@@ -55,11 +55,11 @@ class SelectorModel(PreTrainedModel):
         super().__init__(cfg)
         self.bert = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased')
         self.selector = CNNModel.from_pretrained('/scratch/drau/models/extractor_passage/num_steps_1000_bs_2048_fs_15_filters_768_lr_3e-05_pat_3_max_len_256/')
-    
+        self.num_terms = cfg.num_terms 
 
     def forward(self, input_ids, reduce_input=False):
         if reduce_input:
-            input_ids, embeds = self.selector.get_tokens(input_ids, self.model.config.num_terms)
+            input_ids, embeds = self.selector.get_tokens(input_ids, self.num_terms)
         emb_docs = self.bert(input_ids).logits
         return emb_docs
 
@@ -102,7 +102,7 @@ class CNNModel(PreTrainedModel):
     def get_tokens(self, x, topk):
         scores, embeds = self.forward(x)
         scores[x==self.tokenizer.pad_token_id] = -1000
-        indices = torch.topk(scores, topk, dim=1)[1].sort()[0]
+        indices = torch.topk(scores, topk, dim=1)[1]#.sort()[0]
         embeds_selected_tokens = embeds.permute(0,2,1).gather(dim=1, index=indices.unsqueeze(2).repeat(1,1,embeds.shape[1]))
         return x.gather(dim=1, index=indices), embeds_selected_tokens
 

@@ -11,8 +11,9 @@ class CrossSelector(CrossEncoderBase):
         super().__init__()
         self.kwargs = kwargs
         self.tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased', truncation_side=kwargs['truncation_side'])
-        self.model = SelectorModel(SelectorModelConfig()) 
-        self.model_type = 'cross-selector'
+        print(kwargs)
+        self.model = SelectorModel(SelectorModelConfig(num_terms=kwargs['num_terms'])) 
+        self.type = 'cross-selector'
 
 
     def get_scores(self, features, index):
@@ -28,18 +29,29 @@ class CrossSelector(CrossEncoderBase):
  
 
 class SelectorModelConfig(PretrainedConfig):
-    def __init__(self, num_terms, **kwargs):
-        super().__init__(**kwargs)
-	    model_type = 'SelectorModel'
-	    num_terms = num_terms
+    model_type = 'SelectorModel'
+    num_terms = None 
+   # def __init__(self, num_terms, **kwargs):
+   #     super().__init__(**kwargs)
+
+    def to_dict(self):
+        """Converts the configuration to a dictionary."""
+        config_dict = super().to_dict()
+        config_dict['num_terms'] = self.num_terms
+        return config_dict
+
+
 class SelectorModel(PreTrainedModel):
     config_class  = SelectorModelConfig
     
     def __init__(self, cfg):
         super().__init__(cfg)
         self.bert = AutoModelForSequenceClassification.from_pretrained('bert-base-uncased')
-        self.selector = CNNModel.from_pretrained('/scratch/drau/models/extractor_passage/num_steps_1000_bs_2048_fs_15_filters_768_lr_3e-05_pat_3_max_len_256/')
-    
+        #self.selector = CNNModel.from_pretrained('/scratch/drau/models/extractor_passage/num_steps_1000_bs_2048_fs_15_filters_768_lr_3e-05_pat_3_max_len_256/')
+        self.selector = CNNModel.from_pretrained('/scratch/drau/models/extractor_passage/num_steps_1000_bs_2048_fs_1_15_31_filters_768_lr_3e-05_pat_3_max_len_256')
+        cnn_config = CNNModelConfig(filter_sizes=[31], num_filters=768)
+        self.selector = CNNModel(cnn_config)
+        self.num_terms = cfg.num_terms 
     def merge_inp(self, inp_ids_queries, inp_ids_docs):
         
         # input ids
@@ -58,7 +70,7 @@ class SelectorModel(PreTrainedModel):
 
     def forward(self, inp_ids_queries, inp_ids_docs):
 
-        reduced_inp_ids_docs, _ = self.selector.get_tokens(inp_ids_docs, self.config.num_terms)
+        reduced_inp_ids_docs, _ = self.selector.get_tokens(inp_ids_docs, self.num_terms)
         merged_input = self.merge_inp(inp_ids_queries, reduced_inp_ids_docs)
         out_raw = self.bert(**merged_input)
         return out_raw
@@ -77,6 +89,8 @@ class CNNModel(PreTrainedModel):
         cfg.filter_sizes         = config['filter_sizes']
         cfg.num_filters          = config['num_filters']
         return CNNModel(cfg)
+
+
 
 
     def __init__(self, cfg):
@@ -104,7 +118,7 @@ class CNNModel(PreTrainedModel):
     def get_tokens(self, x, topk):
         scores, embeds = self.forward(x)
         scores[x == 0] = -1000
-        indices = torch.topk(scores, topk, dim=1)[1].sort()[0]
+        indices = torch.topk(scores, topk, dim=1)[1]#.sort()[0]
         embeds_selected_tokens = embeds.permute(0,2,1).gather(dim=1, index=indices.unsqueeze(2).repeat(1,1,embeds.shape[1]))
         return x.gather(dim=1, index=indices), embeds_selected_tokens
 
