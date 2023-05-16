@@ -1,0 +1,19 @@
+#!/bin/bash
+# Set job requirements
+#SBATCH -p illc
+#SBATCH -A illc 
+#SBATCH --gpus=4
+#SBATCH --mem=200G
+#SBATCH --exclusive
+#SBATCH --time=24:00:00
+
+
+
+
+
+
+source illc_slurm_common.sh $1
+
+
+
+

@@ -84,8 +84,8 @@ class DataReader(torch.utils.data.IterableDataset):
             new_doc = list()
             for term, score in zip(d, importance_score):
                 #new_doc.append(f'[unused{int(score)}]')
-                #new_doc.append(f'{int(score)}')
                 #if term not in self.stopwords:
+                new_doc.append(f'{int(score)}')
                 new_doc.append(term)
             score_docs.append(' '.join(new_doc))
         return score_docs

@@ -57,7 +57,7 @@ def eval_model(ranker, dataloader_test, qrels_file, model_dir,  max_rank='1000',
     perf_monitor.log_unique_value("eval_median_batch_pair_latency_ms", np.median(batch_latency))
     perf_monitor.print_summary()
     # RUN TREC_EVAL
-    test = Trec(eval_metric, 'trec_eval', qrels_file, max_rank, ranking_file_path=f'{model_dir}/model_eval_ranking{suffix}')
+    test = Trec(eval_metric, 'trec_eval', qrels_file, max_rank, ranking_file_path=f'{model_dir}/ranking{suffix}')
     eval_val = test.score(sorted_scores, q_ids)
     print_message('model:{}, {}@{}:{}'.format("eval", eval_metric, max_rank, eval_val))
     if save_hidden_states:
