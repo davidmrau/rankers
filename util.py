@@ -29,6 +29,20 @@ class PostingBalance:
         return self.cv_squared(x.sum(0))
 
 
+class DistilMarginMSE(nn.Module):
+    """MSE margin distillation loss from: Improving Efficient Neural Ranking Models with Cross-Architecture
+    Knowledge Distillation
+    link: https://arxiv.org/abs/2010.02666
+    """
+
+    def __init__(self):
+        super(DistilMarginMSE, self).__init__()
+        self.loss = torch.nn.MSELoss()
+
+    def __call__(self, pos_scores, neg_scores, teacher_pos_scores, teacher_neg_scores):
+        margin = pos_scores - neg_scores
+        teacher_margin = teacher_pos_scores - teacher_neg_scores
+        return self.loss(margin.squeeze(), teacher_margin.squeeze()).mean()  # forces the margins to be similar
 
 def print_message(s):
     print("[{}] {}".format(datetime.datetime.utcnow().strftime("%b %d, %H:%M:%S"), s), flush=True)

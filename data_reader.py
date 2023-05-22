@@ -6,7 +6,8 @@ from collections import defaultdict
 transformers.logging.set_verbosity_error()
 import gzip
 from transformers import BasicTokenizer
-
+import pickle
+import json
 class DataReader(torch.utils.data.IterableDataset):
                 
 
@@ -285,7 +286,7 @@ class DataReader(torch.utils.data.IterableDataset):
                         q_trunc += f'{t} '
                 q_batch_trunc.append(q_trunc.rstrip(' '))
 
-        return q_batch_trunc	      
+        return q_batch_trunc          
 
     def get_tf_embeds(self, docs):
         tf_embed = torch.zeros(docs.shape[0], docs.shape[1], 768)
@@ -422,4 +423,62 @@ class MSMARCO(torch.utils.data.IterableDataset):
         pid, data = [x[0] for x in inp], [x[1] for x in inp]
         tokenized = self.tokenizer(data, add_special_tokens=True, padding=True,truncation=True, return_tensors='pt', max_length=self.max_len)
         return (pid, tokenized)
+
+class MsMarcoHardNegatives(torch.utils.data.Dataset):
+    """
+    class used to work with the hard-negatives dataset from sentence transformers
+    see: https://huggingface.co/datasets/sentence-transformers/msmarco-hard-negatives
+    """
+
+    def __init__(self, id2q, id2d, dataset_path, qrels_path, max_inp_len, tokenizer):
+        self.id2q = id2q
+        self.id2d = id2d
+        self.tokenizer = tokenizer
+        self.max_inp_len = max_inp_len
+        # load scores
+        with gzip.open(dataset_path, "rb") as fIn:
+            self.scores_dict = pickle.load(fIn)
+        # get query set
+        query_list = set(self.id2q.file.keys())
+        # load qrels
+        with open(qrels_path) as reader:
+            self.qrels = json.load(reader)
+        # get query ids that are in qrels
+        self.query_list = list()
+        for qid in query_list:
+            if str(qid) in self.qrels.keys():
+                self.query_list.append(qid)
+        print("QUERY SIZE = ", len(self.query_list))
+
+    def __len__(self):
+        return len(self.query_list)
+
+    def __getitem__(self, idx):
+        query = self.query_list[idx]
+        q = self.id2q[str(query)]
+        candidates_dict = self.scores_dict[int(query)]
+        candidates = list(candidates_dict.keys())
+        positives = list(self.qrels[str(query)].keys())
+        for positive in positives:
+            candidates.remove(int(positive))
+        positive = random.sample(positives, 1)[0]
+        s_pos = candidates_dict[int(positive)]
+        negative = random.sample(candidates, 1)[0]
+        s_neg = candidates_dict[negative]
+        d_pos = self.id2d[str(positive)]
+        d_neg = self.id2d[str(negative)]
+        return q.strip(), d_pos.strip(), d_neg.strip(), float(s_pos), float(s_neg)
+
+
+    def collate_fn(self, inp):
+        features = {}
+        qs, ds_pos, ds_neg, ss_pos, ss_neg = zip(*inp)
+        features['encoded_queries'] = self.tokenizer(list(qs), padding='max_length', return_tensors='pt', truncation=True, max_length=self.max_inp_len)       
+        token_docs_pos = self.tokenizer(list(ds_pos), padding='max_length', return_tensors='pt', truncation=True, max_length=self.max_inp_len)  
+        token_docs_neg = self.tokenizer(list(ds_neg), padding='max_length', return_tensors='pt', truncation=True, max_length=self.max_inp_len)
+
+        features['encoded_docs']  = [token_docs_pos, token_docs_neg]
+        features['teacher_pos_scores'] =  torch.FloatTensor(ss_pos)
+        features['teacher_neg_scores'] =  torch.FloatTensor(ss_neg)
+        return features
 

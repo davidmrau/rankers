@@ -7,12 +7,12 @@ import json
 import torch
 from torch.utils.data import DataLoader
 from file_interface import File
-from data_reader import DataReader, MSMARCO
+from data_reader import DataReader, MSMARCO, MsMarcoHardNegatives
 import argparse
 from tqdm import tqdm
 from transformers.optimization import AdamW, get_linear_schedule_with_warmup
 from models import *
-from util import MarginMSELoss, RegWeightScheduler
+from util import MarginMSELoss, RegWeightScheduler, DistilMarginMSE
 from train_model import train_model
 from eval_model import eval_model
 from encode import encode
@@ -56,7 +56,7 @@ parser.add_argument("--eval_strategy", default='first_p', type=str, help='Evalua
 parser.add_argument("--keep_q", action='store_true', help='[Experimental] Remove all but query terms in document.')
 parser.add_argument("--drop_q", action='store_true', help='[Experimental] Removes all query terms from document.')
 parser.add_argument("--preserve_q", action='store_true', help='[Experimental]')
-parser.add_argument("--mse_loss", action='store_true', help='[Experimental]')
+parser.add_argument("--distil", action='store_true', help='[Experimental]')
 parser.add_argument("--rand_passage", action='store_true', help='[Experimental] Select a random passage of length "max_q_len" from entire input.')
 
 args = parser.parse_args()
@@ -104,9 +104,14 @@ if args.dataset_train:
     #load file
     queries = File(queries_file, encoded=False)
     docs = File(docs_file, encoded=False)
+    if 'distil' in args.dataset_train:
+        qrels_path = dataset['train'][args.dataset_train]['qrels']
+        dataset_train = MsMarcoHardNegatives(queries, docs, triples, qrels_path, args.max_inp_len, ranker.tokenizer)
+        dataloader_train = DataLoader(dataset_train, shuffle=False, batch_size=args.mb_size_train, num_workers=4, collate_fn=dataset_train.collate_fn)
 
-    dataset_train = DataReader(ranker.tokenizer, ranker.type, triples, 2, True, queries, docs, args.mb_size_train, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, has_label_scores=args.mse_loss, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, continue_line=args.continue_line)
-    dataloader_train = DataLoader(dataset_train, batch_size=None, num_workers=1, pin_memory=False, collate_fn=dataset_train.collate_fn)
+    else:
+        dataset_train = DataReader(ranker.tokenizer, ranker.type, triples, 2, True, queries, docs, args.mb_size_train, drop_q=args.drop_q, keep_q=args.keep_q, preserve_q=args.preserve_q, shuffle=args.shuffle, sort=args.sort, max_inp_len=args.max_inp_len, max_q_len=args.max_q_len, tf_embeds=args.tf_embeds, continue_line=args.continue_line)
+        dataloader_train = DataLoader(dataset_train, batch_size=None, num_workers=1, pin_memory=False, collate_fn=dataset_train.collate_fn)
 
 
 # encode 
@@ -173,7 +178,7 @@ if args.no_pos_emb:
 optimizer = AdamW(filter(lambda p: p.requires_grad, ranker.model.parameters()), lr=args.learning_rate, weight_decay=0.01)
 scheduler = get_linear_schedule_with_warmup(optimizer=optimizer, num_warmup_steps=1000, num_training_steps=150000)
 scaler = torch.cuda.amp.GradScaler(enabled=not args.no_fp16)
-reg = RegWeightScheduler(args.aloss_scalar, 5000)
+reg = RegWeightScheduler(args.aloss_scalar, 50000)
 
 
 
@@ -184,8 +189,8 @@ if 'cross' in ranker.type or 'cross-selector' == ranker.type:
 elif 'bi' in ranker.type:
     criterion = torch.nn.MarginRankingLoss(margin=1)
     #logsoftmax = torch.nn.LogSoftmax(dim=1)
-if args.mse_loss:
-    criterion = MarginMSELoss()
+if 'distil' in args.dataset_train:
+    criterion = DistilMarginMSE()
 
 
 
