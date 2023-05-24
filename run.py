@@ -26,6 +26,7 @@ parser.add_argument("--dataset_train", type=str, default=None, help="Train datas
 parser.add_argument("--encode", type=str, default=None, help='Path to file to encode. Input Format "qid\tdid\n".')
 parser.add_argument("--decode", type=str, default=None, help='Path to file to decode (sparse representations). Input Format "qid\tdid\n".')
 
+parser.add_argument("--num_warmup_steps", type=int, default=0, help='Number of training warmup steps.')
 
 
 parser.add_argument("--add_to_dir", type=str, default='', help='Will be appended to the default model directory')
@@ -44,6 +45,7 @@ parser.add_argument("--continue_line", type=int, default=0, help='Continue train
 parser.add_argument("--save_last_hidden", action='store_true', help='Saves last hiden state under exp_dir/model_dir/last_hidden.p')
 
 parser.add_argument("--aloss_scalar", type=float, default=0.0001, help='Loss scalar for the auxiliary sparsity loss.')
+parser.add_argument("--aloss_steps", type=float, default=50000, help='Number of steps of the regularization scheduler..')
 parser.add_argument("--aloss", action='store_true', help='Using auxilliary sparsity loss.')
 parser.add_argument("--tf_embeds", action='store_true', help='[Experimental] Add term frequencies to input embeddings.')
 parser.add_argument("--sparse_dim", type=int, default=10000, help='Dimensionality of the sparsity layer.')
@@ -176,9 +178,9 @@ if args.no_pos_emb:
     print('!!Removing positional Embeddings!!!')
 
 optimizer = AdamW(filter(lambda p: p.requires_grad, ranker.model.parameters()), lr=args.learning_rate, weight_decay=0.01)
-scheduler = get_linear_schedule_with_warmup(optimizer=optimizer, num_warmup_steps=1000, num_training_steps=150000)
+scheduler = get_linear_schedule_with_warmup(optimizer=optimizer, num_warmup_steps=args.num_warmup_steps, num_training_steps=150000)
 scaler = torch.cuda.amp.GradScaler(enabled=not args.no_fp16)
-reg = RegWeightScheduler(args.aloss_scalar, 50000)
+reg = RegWeightScheduler(args.aloss_scalar, args.aloss_steps)
 
 
 
@@ -189,7 +191,7 @@ if 'cross' in ranker.type or 'cross-selector' == ranker.type:
 elif 'bi' in ranker.type:
     criterion = torch.nn.MarginRankingLoss(margin=1)
     #logsoftmax = torch.nn.LogSoftmax(dim=1)
-if 'distil' in args.dataset_train:
+if args.dataset_train and 'distil' in args.dataset_train:
     criterion = DistilMarginMSE()
 
 

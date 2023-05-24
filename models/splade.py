@@ -9,8 +9,8 @@ class SpladeCocondenserEnsembleDistil(BiEncoderBase):
     def __init__(self, kwargs):
         super().__init__()
         self.kwargs = kwargs
-        self.reverse_voc = {v: k for k, v in self.tokenizer.vocab.items()}
         self.tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+        self.reverse_voc = {v: k for k, v in self.tokenizer.vocab.items()}
 
         config = SpladeConfig(base_model='naver/splade-cocondenser-ensembledistil')
         self.model = Splade(config)

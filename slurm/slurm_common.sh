@@ -12,7 +12,7 @@ nvidia-smi
 
 FILE_NAME=$1
 export FILE_NAME
-sleep 5 
+sleep 2 
 source slurm/${1}
 
 

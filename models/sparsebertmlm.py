@@ -1,19 +1,19 @@
 import torch
 from torch import nn
-from transformers import BertModel, BertConfig, PretrainedConfig, PreTrainedModel
+from transformers import BertModel, BertConfig, PretrainedConfig, PreTrainedModel, BertForMaskedLM
 from transformers.models.bert.modeling_bert import BertOnlyMLMHead
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 from models.biencoder_base import BiEncoderBase
-
-class SparseBert(BiEncoderBase):
+import copy
+class SparseBertMLM(BiEncoderBase):
     
     def __init__(self, kwargs):
         super().__init__()
         self.kwargs = kwargs
-        self.tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+        self.tokenizer = AutoTokenizer.from_pretrained('naver/splade-cocondenser-ensembledistil')
         self.reverse_voc = {v: k for k, v in self.tokenizer.vocab.items()}
-        config = SparseBertModelConfig(sparse_dim=kwargs['sparse_dim'])
-        self.model = SparseBertModel(config)
+        config = SparseBertMLMModelConfig()
+        self.model = SparseBertMLMModel(config)
     
     def get_scores(self, features, index):
         return_dict = {}
@@ -41,39 +41,23 @@ class SparseBert(BiEncoderBase):
         return_dict['used_dims'] = used_dims(emb_docs)
         return return_dict
 
-class SparseBertModelConfig(PretrainedConfig):
-	model_type = "SparseBertModel"
-	sparse_dim: int
+class SparseBertMLMModelConfig(PretrainedConfig):
+        model_type = "SparseBertMLMModel"
 
-class SparseBertModel(PreTrainedModel):
-    config_class = SparseBertModelConfig 
+class SparseBertMLMModel(PreTrainedModel):
+    config_class = SparseBertMLMModelConfig 
     def __init__(self, cfg):
         super().__init__(cfg)
         
-        self.bert = BertModel.from_pretrained('bert-base-uncased', add_pooling_layer=False)
-        #head_bert = BertForMaskedLM.from_pretrained('bert-base-uncased').cls
-        #self.bert = BertModel(BertConfig(num_hidden_layers=12))
-        #self.bert.embeddings = BertModel.from_pretrained('bert-base-uncased', add_pooling_layer=False).embeddings
-        
-        #self.bert.embeddings.position_embeddings.weight.data = torch.zeros_like(self.bert.embeddings.position_embeddings.weight.data)
-        #self.bert.embeddings.token_type_embeddings.weight.data = torch.zeros_like(self.bert.embeddings.token_type_embeddings.weight.data)
-        #self.bert.embeddings.position_embeddings.requires_grad = False
-        #self.bert.embeddings.token_type_embeddings.requires_grad = False
-
-        #self.bert.config.vocab_size = cfg.sparse_dim
-        #self.head = BertOnlyMLMHead(config=self.bert.config)
-        #self.head.load_state_dict(head_bert.state_dict())
-        #del head_bert
-        self.head = nn.Linear(self.bert.config.hidden_size, cfg.sparse_dim, bias=False)
-        self.bias = nn.Parameter(torch.zeros(cfg.sparse_dim))
-        self.head.bias = self.bias
-        print(cfg)
+        pretrained_model = BertForMaskedLM.from_pretrained('naver/splade-cocondenser-ensembledistil')
+        self.bert = copy.deepcopy(pretrained_model.bert)
+        self.head = copy.deepcopy(pretrained_model.cls)
+        del pretrained_model
 
     @staticmethod
     def from_config(config):
-        cfg = SparseBertModelConfig()
-        cfg.sparse_dim = config["sparse_dim"]
-        return SparseBertModel(cfg)
+        cfg = SparseBertMLMModelConfig()
+        return SparseBertMLMModel(cfg)
 
 
     def forward(self, **kwargs):
