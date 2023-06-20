@@ -44,7 +44,8 @@ parser.add_argument("--truncation_side", type=str, default='right', help='Trunca
 parser.add_argument("--continue_line", type=int, default=0, help='Continue training in triples file from given line')
 parser.add_argument("--save_last_hidden", action='store_true', help='Saves last hiden state under exp_dir/model_dir/last_hidden.p')
 
-parser.add_argument("--aloss_scalar", type=float, default=0.0001, help='Loss scalar for the auxiliary sparsity loss.')
+parser.add_argument("--aloss_scalar_d", type=float, default=0, help='Loss scalar for the auxiliary sparsity loss of document.')
+parser.add_argument("--aloss_scalar_q", type=float, default=0, help='Loss scalar for the auxiliary sparsity loss of document.')
 parser.add_argument("--aloss_steps", type=float, default=50000, help='Number of steps of the regularization scheduler..')
 parser.add_argument("--aloss", action='store_true', help='Using auxilliary sparsity loss.')
 parser.add_argument("--tf_embeds", action='store_true', help='[Experimental] Add term frequencies to input embeddings.')
@@ -180,7 +181,8 @@ if args.no_pos_emb:
 optimizer = AdamW(filter(lambda p: p.requires_grad, ranker.model.parameters()), lr=args.learning_rate, weight_decay=0.01)
 scheduler = get_linear_schedule_with_warmup(optimizer=optimizer, num_warmup_steps=args.num_warmup_steps, num_training_steps=150000)
 scaler = torch.cuda.amp.GradScaler(enabled=not args.no_fp16)
-reg = RegWeightScheduler(args.aloss_scalar, args.aloss_steps)
+reg_d = RegWeightScheduler(args.aloss_scalar_d, args.aloss_steps)
+reg_q = RegWeightScheduler(args.aloss_scalar_q, args.aloss_steps)
 
 
 
@@ -197,7 +199,7 @@ if args.dataset_train and 'distil' in args.dataset_train:
 
 
 if args.dataset_train:
-    train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scaler, scheduler, reg, model_dir, num_epochs=args.num_epochs, aloss_scalar=args.aloss_scalar, aloss=args.aloss, fp16=not args.no_fp16, wandb=wandb, epoch_size=1000)
+    train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scaler, scheduler, reg_d, reg_q, model_dir, num_epochs=args.num_epochs, aloss=args.aloss, fp16=not args.no_fp16, wandb=wandb, epoch_size=1000)
 if args.encode:
     encode(ranker, args.encode, dataloader_encode, model_dir)
 if args.decode:

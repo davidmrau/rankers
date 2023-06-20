@@ -16,6 +16,17 @@ class SpladeCocondenserEnsembleDistil(BiEncoderBase):
         self.model = Splade(config)
 
 
+class SpladeCocondenser(BiEncoderBase):
+    
+    def __init__(self, kwargs):
+        super().__init__()
+        self.kwargs = kwargs
+        self.tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
+        self.reverse_voc = {v: k for k, v in self.tokenizer.vocab.items()}
+
+        model = 'Luyu/co-condenser-marco'
+        config = SpladeConfig(base_model=model)
+        self.model = Splade(config)
 
 class SpladeConfig(PretrainedConfig):
     model_type = "Splade"
