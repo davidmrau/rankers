@@ -1,16 +1,19 @@
 import numpy as np 
 import torch
-
+from transformers import BertForSequenceClassification, BertTokenizer, BertConfig
 class BiEncoderBase(): 
 
     def __init__(self):
         self.tokenizer = None
         self.model = None
         self.type = 'bi'
+       
 
+    def forward(self, **kwargs):
+        return self.model(**kwargs).logits
 
     def decode(self, encoded_input):
-        logits = self.model(**encoded_input.to('cuda')).cpu().detach().numpy()
+        logits = self.model.forward(**encoded_input.to('cuda')).cpu().detach().numpy()
         weight_dicts = self.get_weight_dicts(logits)
         return weight_dicts
        
@@ -23,16 +26,17 @@ class BiEncoderBase():
             to_return.append(d)
         return to_return
 
+    
     def encode(self, encoded_input):
-        emb = self.model(**encoded_input.to('cuda'))
+        emb = self.forward(**encoded_input.to('cuda'))
         return emb
 
     def get_scores(self, features, index):
         return_dict = {}
         encoded_queries = features['encoded_queries']
         encoded_docs = features['encoded_docs'][index]
-        emb_queries = self.model(**encoded_queries.to('cuda'))
-        emb_docs = self.model(**encoded_docs.to('cuda'))
+        emb_queries = self.forward(**encoded_queries.to('cuda'))
+        emb_docs = self.forward(**encoded_docs.to('cuda'))
         def l1(batch_rep):
             return torch.sum(torch.abs(batch_rep), dim=-1).mean()
 

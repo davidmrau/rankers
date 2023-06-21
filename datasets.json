@@ -18,7 +18,7 @@
             "triples": "data/msmarco/cross-encoder-ms-marco-MiniLM-L-6-v2-scores.pkl.gz",
             "queries": "data/msmarco/queries.train.tsv",
             "docs": "data/msmarco/collection.tsv", 
-			"qrels": "data/msmarco/qrels.json"
+	    "qrels": "data/msmarco/qrels.json"
         },
 
         "doc": {
@@ -61,6 +61,13 @@
             "queries": "data/msmarco_docs/msmarco-test2020-queries.tsv",
             "docs": "data/msmarco_docs/msmarco-docs.tsv_test_2020.tsv"
 
+        },
+
+        "2020_pass_bm25" : {
+            "qrels": "data/msmarco/2020qrels-pass.txt",
+            "trec_run": "data/msmarco/run.msmarco-passage.bm25.topics.dl20_54.txt",
+            "queries": "data/msmarco/msmarco-test2020-queries.tsv",
+            "docs": "data/msmarco/collection.tsv"
         },
 
         "2020_pass" : {

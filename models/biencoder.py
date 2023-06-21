@@ -11,7 +11,4 @@ class BiEncoder(BiEncoderBase):
         self.tokenizer = AutoTokenizer.from_pretrained(model_name, truncation_side=kwargs['truncation_side'])
         self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
     
-        
-    def forward(kwargs):
-        return self.model(**kwargs).logits
 

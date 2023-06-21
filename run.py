@@ -32,7 +32,6 @@ parser.add_argument("--num_warmup_steps", type=int, default=0, help='Number of t
 parser.add_argument("--add_to_dir", type=str, default='', help='Will be appended to the default model directory')
 parser.add_argument("--no_fp16", action='store_true', help='Disable half precision training.' )
 parser.add_argument("--mb_size_test", type=int, default=128, help='Test batch size.')
-parser.add_argument("--num_epochs", type=int, default=10, help='Number of training epochs.')
 parser.add_argument("--max_inp_len", type=int, default=512, help='Max. total input length.')
 parser.add_argument("--max_q_len", type=int, default=None, help='Max. Query length. ')
 parser.add_argument("--mb_size_train", type=int, default=1024, help='Train batch size.')
@@ -51,6 +50,7 @@ parser.add_argument("--aloss", action='store_true', help='Using auxilliary spars
 parser.add_argument("--tf_embeds", action='store_true', help='[Experimental] Add term frequencies to input embeddings.')
 parser.add_argument("--sparse_dim", type=int, default=10000, help='Dimensionality of the sparsity layer.')
 parser.add_argument("--num_terms", type=int, default=32, help='Reducing docs to num_terms tokens using the selector.')
+parser.add_argument("--training_steps", type=int, default=150000, help='Numberf of training steps')
 
 parser.add_argument("--no_pos_emb", action='store_true', help='[Experimental] Removes the position embedding.')
 parser.add_argument("--shuffle", action='store_true', help='[Experimental] Shuffles training and test tokens (after tokenization)')
@@ -75,6 +75,7 @@ args.truncation_side = truncation_side
 #    DATA_FILE_TRAIN = "data/msmarco_ensemble/bert_cat_ensemble_msmarcopassage_ids_train_scores.tsv"
 
 
+print(vars(args))
 # instanitae model
 ranker = globals()[args.model](vars(args))
 
@@ -95,10 +96,11 @@ dataset = json.loads(open('datasets.json').read())
 # determine the name of the model directory
 
 wandb.login()
+print('project', args.exp_dir.split('/')[-1])
 wandb.init( project=args.exp_dir.split('/')[-1], config=args)
 # instantiate Data Reader
 if args.dataset_train:
-    model_dir = f'{args.exp_dir}/train/{args.dataset_train}_{args.model}_{args.dataset_test}_bz_{args.mb_size_train}_lr_{args.learning_rate}_ep_{args.num_epochs}_max_inp_len_{args.max_inp_len}'
+    model_dir = f'{args.exp_dir}/train/{args.dataset_train}_{args.model}_{args.dataset_test}_bz_{args.mb_size_train}_lr_{args.learning_rate}_training_steps_{args.training_steps}_max_inp_len_{args.max_inp_len}'
 
     docs_file = dataset['train'][args.dataset_train]['docs']
     queries_file = dataset['train'][args.dataset_train]['queries']
@@ -179,8 +181,7 @@ if args.no_pos_emb:
     print('!!Removing positional Embeddings!!!')
 
 optimizer = AdamW(filter(lambda p: p.requires_grad, ranker.model.parameters()), lr=args.learning_rate, weight_decay=0.01)
-scheduler = get_linear_schedule_with_warmup(optimizer=optimizer, num_warmup_steps=args.num_warmup_steps, num_training_steps=150000)
-scaler = torch.cuda.amp.GradScaler(enabled=not args.no_fp16)
+scheduler = get_linear_schedule_with_warmup(optimizer=optimizer, num_warmup_steps=args.num_warmup_steps, num_training_steps=args.training_steps)
 reg_d = RegWeightScheduler(args.aloss_scalar_d, args.aloss_steps)
 reg_q = RegWeightScheduler(args.aloss_scalar_q, args.aloss_steps)
 
@@ -199,7 +200,7 @@ if args.dataset_train and 'distil' in args.dataset_train:
 
 
 if args.dataset_train:
-    train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scaler, scheduler, reg_d, reg_q, model_dir, num_epochs=args.num_epochs, aloss=args.aloss, fp16=not args.no_fp16, wandb=wandb, epoch_size=1000)
+    train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scheduler, reg_d, reg_q, model_dir, training_steps=args.training_steps, aloss=args.aloss, fp16=not args.no_fp16, wandb=wandb)
 if args.encode:
     encode(ranker, args.encode, dataloader_encode, model_dir)
 if args.decode:
