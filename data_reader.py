@@ -93,7 +93,8 @@ class DataReader(torch.utils.data.IterableDataset):
                                         self.reader.seek(0)
                                         print('Ignored Docs:', self.ignored_docs)
                                         self.done = True
-                                        yield self.prepare_input(features, batch_queries, batch_docs)
+                                        if len(batch_queries) > 0:
+                                            yield self.prepare_input(features, batch_queries, batch_docs)
                                         return
                         cols = row.split()
                         q_id = cols[0]
@@ -107,7 +108,7 @@ class DataReader(torch.utils.data.IterableDataset):
                         ds_ids = [  cols[self.doc_col + i].strip() for i in range(self.num_docs)]
 
                         # get doc content
-                        ds = [self.id2d[id_] for id_ in ds_ids]
+                        ds = [self.id2d[id_].strip() for id_ in ds_ids]
                         # if any of the docs is None skip triplet   
                         if any(x is None for x in ds) or q is None:
                                 self.ignored_docs += 1

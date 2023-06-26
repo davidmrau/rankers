@@ -8,7 +8,7 @@ import amp
 import time
 from util import DistilMarginMSE
 
-def train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scheduler, reg_d, reg_q, model_dir, training_steps=150000, log_every=500, save_every=10000, aloss=False, fp16=True, wandb=None, eval_every=10000):
+def train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scheduler, reg_d, reg_q, model_dir, training_steps=150000, log_every=500, save_every=10000, aloss=False, fp16=True, wandb=None, eval_every=2500, accumulation_steps=1):
     mpm = amp.MixedPrecisionManager(fp16)
     batch_iterator = iter(dataloader_train)
     ranker.model.train()
@@ -21,7 +21,6 @@ def train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion
             features = next(batch_iterator)
         with mpm.context():
             out_1, out_2 = ranker.get_scores(features, index=0), ranker.get_scores(features, index=1)
-            optimizer.zero_grad()
             scores_doc_1, scores_doc_2 = out_1['scores'], out_2['scores']
             if isinstance(criterion, DistilMarginMSE):
                 target_pos, target_neg = features['teacher_pos_scores'].to('cuda'), features['teacher_neg_scores'].to('cuda')
@@ -51,10 +50,13 @@ def train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion
             if torch.isnan(train_loss).sum()> 0:
                 raise ValueError('loss contains nans, aborting training')
                 exit()
-
+            if accumulation_steps > 1:
+               train_loss /= accumulation_steps
             mpm.backward(train_loss)
-            mpm.step(optimizer)
-            scheduler.step()
+            
+            if training_step % accumulation_steps == 0:
+                mpm.step(optimizer)
+                scheduler.step()
             if training_step % log_every == 0:
                     del out_1['scores']
                     print_dict = {"train_loss": train_loss}
