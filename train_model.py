@@ -8,7 +8,7 @@ import amp
 import time
 from util import DistilMarginMSE
 
-def train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scheduler, reg_d, reg_q, model_dir, training_steps=150000, log_every=500, save_every=10000, aloss=False, fp16=True, wandb=None, eval_every=2500, accumulation_steps=1):
+def train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scheduler, reg_d, reg_q, model_dir, training_steps=150000, log_every=500, save_every=10000, aloss=False, fp16=True, wandb=None, eval_every=5000, accumulation_steps=1):
     mpm = amp.MixedPrecisionManager(fp16)
     batch_iterator = iter(dataloader_train)
     ranker.model.train()
@@ -66,7 +66,7 @@ def train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion
                     print_message(print_dict)
 
             if training_step % eval_every == 0:
-                eval_model(ranker, dataloader_test, qrels_file, model_dir, suffix=training_steps, wandb=wandb)
+                eval_model(ranker, dataloader_test, qrels_file, model_dir, suffix=training_step, wandb=wandb)
 
             if training_step % save_every == 0:
                 if hasattr(ranker.model, 'module'):
