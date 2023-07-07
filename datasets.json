@@ -70,10 +70,23 @@
             "docs": "data/msmarco/collection.tsv"
         },
 
+        "2020_pass_bm25_100" : {
+            "qrels": "data/msmarco/2020qrels-pass.txt",
+            "trec_run": "data/msmarco/run.msmarco-passage.bm25.topics.dl20_54.txt_top_100",
+            "queries": "data/msmarco/msmarco-test2020-queries.tsv",
+            "docs": "data/msmarco/collection.tsv"
+        },
+
         "2020_pass" : {
             "qrels": "data/msmarco/2020qrels-pass.txt",
             "trec_run": "data/msmarco/msmarco-passagetest2020-top1000_ranking_results_style_54.tsv",
             "queries": "data/msmarco/msmarco-test2020-queries.tsv",
+            "docs": "data/msmarco/collection.tsv"
+        },
+        "2020_pass_chatgtp" : {
+            "qrels": "data/msmarco/2020qrels-pass.txt",
+            "trec_run": "data/msmarco/msmarco-passagetest2020-top1000_ranking_results_style_54.tsv",
+            "queries": "data/msmarco/chat-gtp.msmarco-passagetest2020_54.tsv",
             "docs": "data/msmarco/collection.tsv"
         },
         "2020_pass_top_100_plm" : {

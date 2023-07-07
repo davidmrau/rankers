@@ -6,7 +6,7 @@ class LlamaCrossEncoder(CrossEncoderBase):
         super().__init__()
         self.kwargs = kwargs
         model_name = 'huggyllama/llama-7b'
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name, truncation_side=kwargs['truncation_side'])
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name, truncation_side=kwargs['truncation_side'], padding_side='right')
         self.tokenizer.pad_token = self.tokenizer.eos_token
         self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
 
@@ -15,7 +15,7 @@ class LlamaCrossEncoder(CrossEncoderBase):
 
         for name, param in self.model.named_parameters():
             if 'layers' in name:
-                if int(name.split('.')[2]) > 30:
+                if int(name.split('.')[2]) > 28:
                         param.requires_grad = True
     def get_scores(self, features, index):
         encoded_input = features['encoded_input'][index]

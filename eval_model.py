@@ -7,13 +7,13 @@ import numpy as np
 import pickle
 from util import print_message
 
-def eval_model(ranker, dataloader_test, qrels_file, model_dir,  max_rank='1000', eval_metric='ndcg_cut_10', suffix='', save_hidden_states=False, eval_strategy='first_p', wandb=None):
+def eval_model(ranker, dataloader_test, qrels_file, model_dir, max_rank='1000', eval_metric='ndcg_cut_10', suffix='', save_hidden_states=False, eval_strategy='first_p', wandb=None):
     ranker.model.eval()
     res_test = {}
     batch_latency = []
     perf_monitor = PerformanceMonitor.get()
     last_hidden = list()
-    for num_i, features in tqdm(enumerate(dataloader_test)):
+    for num_i, features in enumerate(dataloader_test):
         with torch.inference_mode():
             start_time = time.time()
             out = ranker.get_scores(features, index=0)
@@ -61,7 +61,14 @@ def eval_model(ranker, dataloader_test, qrels_file, model_dir,  max_rank='1000',
     eval_val = test.score(sorted_scores, q_ids)
     print_message('model:{}, {}@{}:{}'.format("eval", eval_metric, max_rank, eval_val))
     if wandb:
-        wandb.log({"eval_metric": eval_metric, 'max_rank': max_rank, 'eval': eval_val})
+        wandb.log({"eval_metric": eval_metric, 'max_rank': max_rank, 'eval': eval_val, 'batch': suffix})
     if save_hidden_states:
         pickle.dump(last_hidden, open(f'{model_dir}/last_hidden.p', 'wb'))
-    return eval_val
+    del perf_monitor
+    del q_ids
+    del sorted_scores
+    del res_test
+    del batch_latency
+    del eval_val
+    del features
+

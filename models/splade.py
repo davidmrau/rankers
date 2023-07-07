@@ -15,6 +15,9 @@ class SpladeCocondenserEnsembleDistil(BiEncoderBase):
         config = SpladeConfig(base_model='naver/splade-cocondenser-ensembledistil')
         self.model = Splade(config)
 
+    def forward(self, **kwargs):
+        return self.model(**kwargs)
+
 
 class SpladeCocondenser(BiEncoderBase):
     

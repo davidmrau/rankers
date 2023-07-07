@@ -7,7 +7,7 @@ import json
 import torch
 from torch.utils.data import DataLoader
 from file_interface import File
-from data_reader import DataReader, MSMARCO, MsMarcoHardNegatives
+from data_reader import DataReader, MSMARCO, MsMarcoHardNegatives,MsMarcoHardNegativesCausalLM 
 import argparse
 from tqdm import tqdm
 from transformers.optimization import AdamW, get_linear_schedule_with_warmup
@@ -63,6 +63,7 @@ parser.add_argument("--preserve_q", action='store_true', help='[Experimental]')
 parser.add_argument("--distil", action='store_true', help='[Experimental]')
 parser.add_argument("--rand_passage", action='store_true', help='[Experimental] Select a random passage of length "max_q_len" from entire input.')
 
+parser.add_argument("--eval_every", type=int, default=2500, help='Evaluate every n steps')
 args = parser.parse_args()
 print(args)
 # adjust truncation side dependent on evaluation strategy
@@ -96,9 +97,6 @@ dataset = json.loads(open('datasets.json').read())
 
 # determine the name of the model directory
 
-wandb.login()
-print('project', args.exp_dir.split('/')[-1])
-wandb.init( project=args.exp_dir.split('/')[-1], config=args)
 # instantiate Data Reader
 if args.dataset_train:
     model_dir = f'{args.exp_dir}/train/{args.dataset_train}_{args.model}_{args.dataset_test}_bz_{args.mb_size_train}_lr_{args.learning_rate}_training_steps_{args.training_steps}_max_inp_len_{args.max_inp_len}'
@@ -110,7 +108,11 @@ if args.dataset_train:
     #load file
     queries = File(queries_file, encoded=False)
     docs = File(docs_file, encoded=False)
-    if 'distil' in args.dataset_train:
+    if ranker.type == 'causallm':
+        qrels_path = dataset['train'][args.dataset_train]['qrels']
+        dataset_train = MsMarcoHardNegativesCausalLM(queries, docs, triples, qrels_path, args.max_inp_len, ranker.tokenizer)
+        dataloader_train = DataLoader(dataset_train, shuffle=False, batch_size=args.mb_size_train, num_workers=4, collate_fn=dataset_train.collate_fn)
+    elif 'distil' in args.dataset_train:
         qrels_path = dataset['train'][args.dataset_train]['qrels']
         dataset_train = MsMarcoHardNegatives(queries, docs, triples, qrels_path, args.max_inp_len, ranker.tokenizer)
         dataloader_train = DataLoader(dataset_train, shuffle=False, batch_size=args.mb_size_train, num_workers=4, collate_fn=dataset_train.collate_fn)
@@ -135,7 +137,7 @@ if args.encode or args.decode:
     else:
         model_dir = '{args.checkpoint}/{base}_{file_base}'
     dataset = MSMARCO(encode_file, ranker.tokenizer, max_len=args.max_inp_len)
-    dataloader_encode = DataLoader(dataset, batch_size=args.mb_size_test, num_workers=1, collate_fn=dataset.collate_fn)
+    dataloader_encode = DataLoader(dataset, batch_size=args.mb_size_test, num_workers=4, collate_fn=dataset.collate_fn)
 
 if args.dataset_test:
     # if we are training then just save evaluation to training foler
@@ -195,13 +197,17 @@ if 'cross' in ranker.type or 'cross-selector' == ranker.type:
 elif 'bi' in ranker.type:
     criterion = torch.nn.MarginRankingLoss(margin=1)
     #logsoftmax = torch.nn.LogSoftmax(dim=1)
+elif 'causallm' == ranker.type:
+    criterion = None
 if args.dataset_train and 'distil' in args.dataset_train:
     criterion = DistilMarginMSE()
 
 
+wandb.login()
+wandb.init( project=args.exp_dir.split('/')[-2], config=args)
 
 if args.dataset_train:
-    train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scheduler, reg_d, reg_q, model_dir, training_steps=args.training_steps, aloss=args.aloss, fp16=not args.no_fp16, wandb=wandb, accumulation_steps=args.accumulation_steps)
+    train_model(ranker, dataloader_train, dataloader_test, qrels_file, criterion, optimizer, scheduler, reg_d, reg_q, model_dir, training_steps=args.training_steps, aloss=args.aloss, fp16=not args.no_fp16, wandb=wandb, accumulation_steps=args.accumulation_steps, eval_every=args.eval_every)
 if args.encode:
     encode(ranker, args.encode, dataloader_encode, model_dir)
 if args.decode:

@@ -3,7 +3,7 @@ from transformers import AutoTokenizer, AutoModel
 from models.biencoder_base import BiEncoderBase
 
 
-class BiEncoder(BiEncoderBase):
+class Condenser(BiEncoderBase):
     def __init__(self, kwargs):
         super().__init__()
         self.kwargs = kwargs

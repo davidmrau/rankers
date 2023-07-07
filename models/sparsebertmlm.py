@@ -49,7 +49,8 @@ class SparseBertMLMModel(PreTrainedModel):
     def __init__(self, cfg):
         super().__init__(cfg)
         
-        pretrained_model = BertForMaskedLM.from_pretrained('naver/splade-cocondenser-ensembledistil')
+        #pretrained_model = BertForMaskedLM.from_pretrained('naver/splade-cocondenser-ensembledistil')
+        pretrained_model = BertForMaskedLM.from_pretrained('Luyu/co-condenser-marco')
         self.bert = copy.deepcopy(pretrained_model.bert)
         self.head = copy.deepcopy(pretrained_model.cls)
         del pretrained_model

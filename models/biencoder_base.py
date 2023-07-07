@@ -10,7 +10,7 @@ class BiEncoderBase():
        
 
     def forward(self, **kwargs):
-        return self.model(**kwargs).logits
+        return self.model(**kwargs).last_hidden_state[:, 0, :]
 
     def decode(self, encoded_input):
         logits = self.model.forward(**encoded_input.to('cuda')).cpu().detach().numpy()

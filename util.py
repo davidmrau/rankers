@@ -40,6 +40,11 @@ class DistilMarginMSE(nn.Module):
         self.loss = torch.nn.MSELoss()
 
     def __call__(self, pos_scores, neg_scores, teacher_pos_scores, teacher_neg_scores):
+        if pos_scores.shape[0] != teacher_pos_scores.shape[0]:
+        #if isinstance(pos_scores, list):
+            num_emb_scores = pos_scores.shape[0] // teacher_pos_scores.shape[0]
+            teacher_pos_scores = teacher_pos_scores.repeat(num_emb_scores)
+            teacher_neg_scores = teacher_neg_scores.repeat(num_emb_scores)
         margin = pos_scores - neg_scores
         teacher_margin = teacher_pos_scores - teacher_neg_scores
         return self.loss(margin.squeeze(), teacher_margin.squeeze()).mean()  # forces the margins to be similar

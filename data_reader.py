@@ -5,6 +5,7 @@ import random
 from collections import defaultdict
 transformers.logging.set_verbosity_error()
 import gzip
+from transformers import LlamaTokenizer
 from transformers import BasicTokenizer
 import pickle
 import json
@@ -67,7 +68,7 @@ class DataReader(torch.utils.data.IterableDataset):
         features['tf_embeds'] = list()
         batch_queries, batch_docs = list(), list()
         return features, batch_queries, batch_docs
-                
+    
 
     def __iter__(self):
             self.ignored_docs = 0
@@ -126,7 +127,7 @@ class DataReader(torch.utils.data.IterableDataset):
                             ds = [self.keep_query_terms(q, d_) for d_ in ds]
 
                         if self.preserve_q:
-                            ds = [self.preserve_query_terms(q, d_) for d_ in ds]
+                            ds = [self.preserve_query_terms(q, d_) for d_ in ds] 
 
                         if self.has_label_scores:
                             features['labels_1'].append(float(cols[3]))
@@ -172,9 +173,8 @@ class DataReader(torch.utils.data.IterableDataset):
                     yield self.prepare_input(features, batch_queries, batch_docs)
     def prepare_input(self, features, batch_queries, batch_docs): 
         doc_ids = [el[0] for el in features['meta']]
-        #if self.model_type == 'cross-selector' or self.model_type == 'bi':
         if self.model_type == 'cross-selector' or 'bi' in self.model_type:
-            batch_queries = self.tokenizer(batch_queries, padding="max_length", return_tensors="pt", truncation='longest_first', max_length=self.max_q_len)
+            batch_queries = self.tokenizer(batch_queries, padding=True, return_tensors="pt", truncation='longest_first', max_length=self.max_q_len)
             batch_docs = [self.tokenizer([bd[i] for bd in batch_docs], padding=True, return_tensors="pt", truncation='longest_first', max_length=self.max_inp_len) for i in range(self.num_docs)]
             features['encoded_queries'] = batch_queries 
             features['encoded_docs'] = batch_docs
@@ -198,7 +198,9 @@ class DataReader(torch.utils.data.IterableDataset):
                 for idx in idxs:
                     print(doc_ids[idx], self.tokenizer.decode(features['encoded_input'][-1]['input_ids'][idx]))
                 self.first_batch=True
-            
+        if self.model_type  == 'causallm':
+            batch_queries, [bd[0] for bd in batch_docs]
+            features['encoded'] = [ self.tokenizer([f"query: {q}, document: {d}, score: " for q, d in zip(batch_queries, [bd[i] for bd in batch_docs])], truncation=True, padding=True, max_length=self.max_inp_len, return_tensors='pt') for i in range(self.num_docs)]
             
         if self.tf_embeds:
             features['tf_embeds'] = [self.get_tf_embeds(inp['input_ids']) for inp in features['encoded_input']]
@@ -474,12 +476,103 @@ class MsMarcoHardNegatives(torch.utils.data.Dataset):
     def collate_fn(self, inp):
         features = {}
         qs, ds_pos, ds_neg, ss_pos, ss_neg = zip(*inp)
-        features['encoded_queries'] = self.tokenizer(list(qs), padding='max_length', return_tensors='pt', truncation=True, max_length=self.max_inp_len)       
-        token_docs_pos = self.tokenizer(list(ds_pos), padding='max_length', return_tensors='pt', truncation=True, max_length=self.max_inp_len)  
-        token_docs_neg = self.tokenizer(list(ds_neg), padding='max_length', return_tensors='pt', truncation=True, max_length=self.max_inp_len)
+        features['encoded_queries'] = self.tokenizer(list(qs), padding=True, return_tensors='pt', truncation=True, max_length=self.max_inp_len)       
+        token_docs_pos = self.tokenizer(list(ds_pos), padding=True, return_tensors='pt', truncation=True, max_length=self.max_inp_len)  
+        token_docs_neg = self.tokenizer(list(ds_neg), padding=True, return_tensors='pt', truncation=True, max_length=self.max_inp_len)
 
         features['encoded_docs']  = [token_docs_pos, token_docs_neg]
         features['teacher_pos_scores'] =  torch.FloatTensor(ss_pos)
         features['teacher_neg_scores'] =  torch.FloatTensor(ss_neg)
         return features
 
+class MsMarcoHardNegativesCausalLM(torch.utils.data.Dataset):
+    """
+    class used to work with the hard-negatives dataset from sentence transformers
+    see: https://huggingface.co/datasets/sentence-transformers/msmarco-hard-negatives
+    """
+
+    def __init__(self, id2q, id2d, dataset_path, qrels_path, max_inp_len, tokenizer):
+        self.id2q = id2q
+        self.id2d = id2d
+        self.tokenizer = tokenizer
+        self.max_inp_len = max_inp_len
+        # load scores
+        with gzip.open(dataset_path, "rb") as fIn:
+            self.scores_dict = pickle.load(fIn)
+        # get query set
+        query_list = set(self.id2q.file.keys())
+        # load qrels
+        with open(qrels_path) as reader:
+            self.qrels = json.load(reader)
+        # get query ids that are in qrels
+        self.query_list = list()
+        for qid in query_list:
+            if str(qid) in self.qrels.keys():
+                self.query_list.append(qid)
+        print("QUERY SIZE = ", len(self.query_list))
+
+    def __len__(self):
+        return len(self.query_list)
+
+    def __getitem__(self, idx):
+        query = self.query_list[idx]
+        q = self.id2q[str(query)]
+        candidates_dict = self.scores_dict[int(query)]
+        candidates = list(candidates_dict.keys())
+        positives = list(self.qrels[str(query)].keys())
+        for positive in positives:
+            candidates.remove(int(positive))
+        positive = random.sample(positives, 1)[0]
+        s_pos = candidates_dict[int(positive)]
+        negative = random.sample(candidates, 1)[0]
+        s_neg = candidates_dict[negative]
+        d_pos = self.id2d[str(positive)]
+        d_neg = self.id2d[str(negative)]
+        s_pos = 'false'
+        s_pos = 'true'
+        pos = {'query' : q.strip(), 'doc': d_pos.strip(), 'label': s_pos}
+        neg = {'query' : q.strip(), 'doc': d_neg.strip(), 'label': s_neg}
+        return (pos , neg )
+        #return q.strip(), d_pos.strip(), d_neg.strip(), float(s_pos), float(s_neg)
+
+    def to_tensor(self, features):
+        batch = {}
+        for k in features:
+                batch[k] = torch.stack(features[k])
+        return batch
+
+    def collate_fn(self, batch):
+        pos = [x[0] for x in batch]
+        neg = [x[1] for x in batch]
+        return {'encoded': [self.to_tensor(self.process(pos)), self.to_tensor(self.process(neg))]}
+
+    def process(self, examples):
+        batch_size = len(examples)
+        inputs = [f"query: {x['query']} document: {x['doc']} label: " for x in examples]
+        targets = [str(x['label']) for x in examples]
+        model_inputs = self.tokenizer(inputs)
+        labels = self.tokenizer(targets, add_special_tokens=False)
+        for i in range(batch_size):
+            sample_input_ids = model_inputs["input_ids"][i]
+            label_input_ids = labels["input_ids"][i] + [self.tokenizer.pad_token_id]
+            # print(i, sample_input_ids, label_input_ids)
+            model_inputs["input_ids"][i] = sample_input_ids + label_input_ids
+            labels["input_ids"][i] = [-100] * len(sample_input_ids) + label_input_ids
+            model_inputs["attention_mask"][i] = [1] * len(model_inputs["input_ids"][i])
+        # print(model_inputs)
+        for i in range(batch_size):
+            sample_input_ids = model_inputs["input_ids"][i]
+            label_input_ids = labels["input_ids"][i]
+            model_inputs["input_ids"][i] = [self.tokenizer.pad_token_id] * (
+                self.max_inp_len - len(sample_input_ids)
+            ) + sample_input_ids
+            model_inputs["attention_mask"][i] = [0] * (self.max_inp_len - len(sample_input_ids)) + model_inputs[
+                "attention_mask"
+            ][i]
+            labels["input_ids"][i] = [-100] * (self.max_inp_len - len(sample_input_ids)) + label_input_ids
+            model_inputs["input_ids"][i] = torch.tensor(model_inputs["input_ids"][i][:self.max_inp_len])
+            model_inputs["attention_mask"][i] = torch.tensor(model_inputs["attention_mask"][i][:self.max_inp_len])
+            labels["input_ids"][i] = torch.tensor(labels["input_ids"][i][:self.max_inp_len])
+        model_inputs["labels"] = labels["input_ids"]
+        del model_inputs['token_type_ids']
+        return model_inputs 

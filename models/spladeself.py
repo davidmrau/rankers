@@ -17,6 +17,9 @@ class SpladeCocondenserSelfDistil(BiEncoderBase):
 
 
 
+    def forward(self, **kwargs):
+        return self.model(**kwargs)
+
 class SpladeConfig(PretrainedConfig):
     model_type = "Splade"
     base_model = 'bert-base-uncased'
